@@ -1,0 +1,22 @@
+# CMake 构建目录和本机配置
+/build/
+/build-*/
+/cmake-build-*/
+CMakeUserPresets.json
+
+# 编译产物
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.exe
+/main
+
+# 本机编辑器配置和临时文件
+/.vscode/
+/.idea/
+*.swp
+*.swo
+*~
+.DS_Store
