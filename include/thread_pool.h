@@ -12,10 +12,11 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <cstddef>
 
 class ThreadPool {
 public:
-    explicit ThreadPool(int numThreads); //explict:禁止隐式类型转换的关键字，这里防止一个整数被隐式转换成线程池对象
+    explicit ThreadPool(int numThreads,std::size_t maxQueuedTasks); //显式构造线程池，指定工作线程数和等待队列容量
     ~ThreadPool();
 
     ThreadPool(const ThreadPool&) = delete;
@@ -70,6 +71,11 @@ public:
                 );
             }
 
+            //入队之前检查容量是否足够
+            if(tasks.size() >= maxQueuedTasks_){
+                throw std::runtime_error("ThreadPool task queue is full");
+            }
+
             tasks.emplace( // 加入任务队列
                 // [task]: 按值捕获,把shared_ptr 拷贝一份到 lambda 内部
                 [task]()
@@ -96,4 +102,6 @@ private:
     std::condition_variable condition;
 
     bool stop = false;
+
+    std::size_t maxQueuedTasks_; //保存等待队列的容量上限
 };

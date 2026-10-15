@@ -1,52 +1,58 @@
 #include "thread_pool.h"
 
-ThreadPool::ThreadPool(int numThreads) {
+ThreadPool::ThreadPool(int numThreads,std::size_t maxQueuedTasks)
+    : maxQueuedTasks_(maxQueuedTasks) { //用参数maxQueuedTask的值初始化maxQueuedTasks_
     if(numThreads <= 0){
-            throw std::invalid_argument("numThreads must be greater than 0");
-        }
+        throw std::invalid_argument("numThreads must be greater than 0");
+    }
 
-        // 在线程启动前分配容器容量
-        threads.reserve(static_cast<std::size_t>(numThreads)); //static_cast<size_t>: 类型转换为size_t
+    //最大容量检查
+    if(maxQueuedTasks_ == 0){
+        throw std::invalid_argument("Queue capacity must be greater than 0");
+    }
 
-        try {
-            for (int i = 0; i < numThreads; i++) {
-                threads.emplace_back([this] {
-                    while (true) {
-                        std::unique_lock<std::mutex> lock(mtx);
+    // 在线程启动前分配容器容量
+    threads.reserve(static_cast<std::size_t>(numThreads)); //static_cast<size_t>: 类型转换为size_t
 
-                        condition.wait(lock, [this] {
-                            return !tasks.empty() || stop;
-                        });
+    try {
+        for (int i = 0; i < numThreads; i++) {
+            threads.emplace_back([this] {
+                while (true) {
+                    std::unique_lock<std::mutex> lock(mtx);
 
-                        if (stop && tasks.empty()) {
-                            return;
-                        }
+                    condition.wait(lock, [this] {
+                        return !tasks.empty() || stop;
+                    });
 
-                        std::function<void()> task(std::move(tasks.front()));
-                        tasks.pop();
-
-                        lock.unlock();
-                        task();
+                    if (stop && tasks.empty()) {
+                        return;
                     }
-                });
-            }
-        }
-        catch (...) {
-            {
-                std::unique_lock<std::mutex> lock(mtx);
-                stop = true;
-            }
 
-            condition.notify_all();
+                    std::function<void()> task(std::move(tasks.front()));
+                    tasks.pop();
 
-            for (auto& t : threads) {
-                if (t.joinable()) {
-                    t.join();
+                    lock.unlock();
+                    task();
                 }
-            }
-
-            throw;
+            });
         }
+    }
+    catch (...) {
+        {
+            std::unique_lock<std::mutex> lock(mtx);
+            stop = true;
+        }
+
+        condition.notify_all();
+
+        for (auto& t : threads) {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
+
+        throw;
+    }
 }
 
 ThreadPool::~ThreadPool() {

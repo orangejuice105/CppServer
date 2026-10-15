@@ -5,8 +5,46 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "thread_pool.h"
+#include <exception>
+#include <sys/time.h>
+#include <cerrno>
 
 void handleClient(int clientFd){
+    //timeval：表示时间的结构体
+    timeval timeout{};
+    timeout.tv_sec = 30; //秒，当前设置为30
+    timeout.tv_usec = 0; //微秒，当前设置为0
+
+    //设置接收超时
+    int recvTimeoutResult = setsockopt(
+        clientFd,
+        SOL_SOCKET, //设置socket层面的通用选项
+        SO_RCVTIMEO, //选项名称：接收超时
+        &timeout, //选项值存的位置
+        sizeof(timeout) //选项值占的字节
+    );
+
+    if(recvTimeoutResult == -1){
+        perror("setsockopt SO_RCVTIMEO");
+        close(clientFd);
+        return;
+    }
+
+    //设置发送超时
+    int sendTimeoutResult = setsockopt(
+        clientFd,
+        SOL_SOCKET, //设置socket层面的通用选项
+        SO_SNDTIMEO, //选项名称：发送超时
+        &timeout, //选项值存的位置
+        sizeof(timeout) //选项值占的字节
+    );
+
+    if(sendTimeoutResult == -1){
+        perror("setsockopt SO_SNDTIMEO");
+        close(clientFd);
+        return;
+    }
+
     char buffer[1024]{}; //缓冲区，暂存收到的数据的内存
     while(true){
         //读取从客户端(clientFd)发来的数据并存在buffer里
@@ -16,7 +54,13 @@ void handleClient(int clientFd){
                                                                     //0: 不启用额外的接受选项
 
         if(received == -1){
-            perror("recv");
+            const int error = errno; //保存错误编号
+            if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
+                std::cerr << "客户端接收超时，关闭连接" << '\n';
+            }
+            else{
+                perror("recv");
+            }
             break;
         }
 
@@ -43,7 +87,13 @@ void handleClient(int clientFd){
                 );
 
                 if(sent == -1){
-                    perror("send");
+                    const int error = errno; //保存错误编号
+                    if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
+                        std::cerr << "客户端发送超时，关闭连接" << '\n';
+                    }
+                    else{
+                        perror("send");
+                    }
                     sendFailed = true;
                     break;
                 }
@@ -63,6 +113,9 @@ void handleClient(int clientFd){
 }
 
 int main(){
+    //测试配置：1个工作线程，等待队列容量为1
+    ThreadPool pool(1,1);
+
     //socket: Linux提供的系统调用接口，成功返回非负整数，失败返回-1
     //AF_INET: 选择IPv4地址体系
     //SOCK_STREAM: 选择流式通信，此处与IPv4搭配，第三个参数使用0得到TCP socket
@@ -130,7 +183,7 @@ int main(){
 
     std::cout << "开始监听,等待客户端连接" << std::endl;
 
-    //串行服务器：一个客户端断开后，继续等待下一个客户端
+    //主线程持续接收连接，将客户端收发任务交给线程池
     while(true){
         //存放客户端地址的空间
         sockaddr_in clientAddr{};
@@ -152,7 +205,15 @@ int main(){
 
         std::cout << "客户端已连接" << std::endl;
 
-        handleClient(clientFd);
+        //保存函数handle和参数clientFd，交给线程池安排执行
+        try{
+            pool.enqueue(handleClient,clientFd);
+        }
+        catch(const std::exception& e){
+            std::cerr << "提交连接任务失败" << '\n';
+            std::cerr << e.what() << '\n';
+            close(clientFd);
+        }
     }
 
     //释放socket
