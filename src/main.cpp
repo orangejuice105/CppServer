@@ -4,6 +4,63 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "thread_pool.h"
+
+void handleClient(int clientFd){
+    char buffer[1024]{}; //缓冲区，暂存收到的数据的内存
+    while(true){
+        //读取从客户端(clientFd)发来的数据并存在buffer里
+        //ssize_t: 系统接口使用的有符号整数类型
+        //recv(): 接收返回收到的字节数，等于0时说明对方已正常结束发送，且待接收数据已读完，等于-1时说明接收失败
+        ssize_t received = recv(clientFd,buffer,sizeof(buffer),0); //sizeof(buffer): 最多允许写入的字节数
+                                                                    //0: 不启用额外的接受选项
+
+        if(received == -1){
+            perror("recv");
+            break;
+        }
+
+        if(received == 0){
+            std::cout << "对方已结束发送" << '\n';
+            break;
+        }
+
+        if(received > 0){
+            ssize_t totalSent = 0; //统计收到的数据中已经回显的字节数
+
+            bool sendFailed = false; //标记发送是否失败
+
+            std::cout << received << '\n';
+            std::cout.write(buffer,received) << std::endl; //从buffer开始输出指定数量的字节
+
+            //一次发送不保证把要求的字节全部发完，所以可能要多次发送
+            while(totalSent < received){
+                //回显：把收到的字节原样发回客户端
+                ssize_t sent = send(clientFd, //发给这个链接对应的客户端
+                    buffer + totalSent, //发送数据的起始位置
+                    received - totalSent, //要发送的字节数
+                    MSG_NOSIGNAL //发送失败时，避免产生可能终止进程的SIGPIPE信号
+                );
+
+                if(sent == -1){
+                    perror("send");
+                    sendFailed = true;
+                    break;
+                }
+
+                if(sent == 0){
+                    std::cerr << "本次没有取得发送进展" << std::endl;
+                    sendFailed = true;
+                    break;
+                }
+
+                totalSent += sent;
+            }
+            if(sendFailed)break;
+        }
+    }
+    close(clientFd);
+}
 
 int main(){
     //socket: Linux提供的系统调用接口，成功返回非负整数，失败返回-1
@@ -95,62 +152,8 @@ int main(){
 
         std::cout << "客户端已连接" << std::endl;
 
-        char buffer[1024]{}; //缓冲区，暂存收到的数据的内存
-        while(true){
-            //读取从客户端(clientFd)发来的数据并存在buffer里
-            //ssize_t: 系统接口使用的有符号整数类型
-            //recv(): 接收返回收到的字节数，等于0时说明对方已正常结束发送，且待接收数据已读完，等于-1时说明接收失败
-            ssize_t received = recv(clientFd,buffer,sizeof(buffer),0); //sizeof(buffer): 最多允许写入的字节数
-                                                                    //0: 不启用额外的接受选项
-
-            if(received == -1){
-                perror("recv");
-                break;
-            }
-
-            if(received == 0){
-                std::cout << "对方已结束发送" << '\n';
-                break;
-            }
-
-            if(received > 0){
-                ssize_t totalSent = 0; //统计收到的数据中已经回显的字节数
-
-                bool sendFailed = false; //标记发送是否失败
-
-                std::cout << received << '\n';
-                std::cout.write(buffer,received) << std::endl; //从buffer开始输出指定数量的字节
-
-                //一次发送不保证把要求的字节全部发完，所以可能要多次发送
-                while(totalSent < received){
-                    //回显：把收到的字节原样发回客户端
-                    ssize_t sent = send(clientFd, //发给这个链接对应的客户端
-                        buffer + totalSent, //发送数据的起始位置
-                        received - totalSent, //要发送的字节数
-                        MSG_NOSIGNAL //发送失败时，避免产生可能终止进程的SIGPIPE信号
-                    );
-
-                    if(sent == -1){
-                        perror("send");
-                        sendFailed = true;
-                        break;
-                    }
-
-                    if(sent == 0){
-                        std::cerr << "本次没有取得发送进展" << std::endl;
-                        sendFailed = true;
-                        break;
-                    }
-
-                    totalSent += sent;
-                }
-                if(sendFailed)break;
-            }
-        }
-        close(clientFd);
+        handleClient(clientFd);
     }
-
-
 
     //释放socket
     close(listenFd);
