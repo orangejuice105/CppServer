@@ -22,3 +22,7 @@ CMakeUserPresets.json
 .DS_Store
 *.log
 *.log.[0-9]*
+
+# Python 测试脚本缓存
+__pycache__/
+*.pyc

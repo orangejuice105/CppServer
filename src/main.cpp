@@ -12,6 +12,8 @@
 #include <system_error>
 #include <string>
 
+//客户端连接测试：nc 127.0.0.1 8080
+
 void handleClient(int clientFd){
     //记录开始处理
     LOGGER_INFO("开始处理客户端,fd=" + std::to_string(clientFd));
@@ -69,6 +71,12 @@ void handleClient(int clientFd){
 
         if(received == -1){
             const int error = errno; //保存错误编号
+
+            //当系统调用被信号打断时，重新尝试
+            if(error == EINTR){
+                continue;
+            }
+
             if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
                 LOGGER_WARN("客户端接收超时,关闭连接,fd=" + std::to_string(clientFd));
             }
@@ -105,6 +113,11 @@ void handleClient(int clientFd){
 
                 if(sent == -1){
                     const int error = errno; //保存错误编号
+
+                    if(error == EINTR){
+                        continue;
+                    }
+
                     if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
                         LOGGER_WARN("客户端发送超时,关闭连接,fd=" + std::to_string(clientFd));
                     }
@@ -159,7 +172,10 @@ int main(){
 
     //创建socket失败打印错误信息并返回1
     if(listenFd == -1){
-        perror("socket");
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("创建socket失败,errno=" + std::to_string(error) + ",原因=" + reason);
         return 1;
     }
 
@@ -177,13 +193,17 @@ int main(){
 
     //两种错误返回，为0时表示文本不是合法的IP地址
     if(result == 0){
+        LOGGER_ERROR("服务器IP地址格式无效: 127.0.0.1");
         close(listenFd);
-        std::cerr << "文本不是合法的 IP 地址" << '\n';
         return 1;
     }
     //为-1时表示地址体系不受支持等错误
     if(result == -1){
-        perror("inet_pton");
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("转换IP地址失败,fd=" + std::to_string(listenFd)
+                     + ",errno=" + std::to_string(error) + ",原因=" + reason);
         close(listenFd);
         return 1;
     }
@@ -199,7 +219,11 @@ int main(){
     );
 
     if(reuseResult == -1){
-        perror("setsockopt SO_REUSEADDR");
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("设置地址复用失败,fd=" + std::to_string(listenFd)
+                     + ",errno=" + std::to_string(error) + ",原因=" + reason);
         close(listenFd);
         return 1;
     }
@@ -214,7 +238,11 @@ int main(){
     );
 
     if(bindResult == -1){
-        perror("bind");
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("bind失败,地址=127.0.0.1:8080,fd=" + std::to_string(listenFd)
+                     + ",errno=" + std::to_string(error) + ",原因=" + reason);
         close(listenFd);
         return 1;
     }
@@ -226,7 +254,11 @@ int main(){
     int listenResult = listen(listenFd,5); //5为等待队列长度，但不等于只能有五个人来连接
 
     if(listenResult == -1){
-        perror("listen");
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("开启监听失败,fd=" + std::to_string(listenFd)
+                     + ",errno=" + std::to_string(error) + ",原因=" + reason);
         close(listenFd);
         return 1;
     }
@@ -250,7 +282,16 @@ int main(){
         );
 
         if(clientFd == -1){
-            perror("accept");
+            const int error = errno;
+
+            if(error == EINTR){
+                continue;
+            }
+
+            const std::error_code ec(error, std::generic_category());
+            const std::string reason = ec.message();
+            LOGGER_ERROR("接收客户端连接失败,监听fd=" + std::to_string(listenFd)
+                         + ",errno=" + std::to_string(error) + ",原因=" + reason);
             close(listenFd);
             return 1;
         }
