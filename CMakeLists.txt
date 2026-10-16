@@ -16,9 +16,16 @@ target_include_directories(thread_pool PUBLIC
 )
 target_link_libraries(thread_pool PUBLIC Threads::Threads)
 
+# 编译日志库，向调用者提供头文件目录和后台线程依赖。
+add_library(logger src/logger.cpp)
+target_include_directories(logger PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(logger PUBLIC Threads::Threads)
+
 # 将入口文件编译为名叫 main 的可执行程序。
 add_executable(main src/main.cpp)
-target_link_libraries(main PRIVATE thread_pool)
+target_link_libraries(main PRIVATE thread_pool logger)
 
 # 当前面向 Linux / WSL，开启常用编译警告帮助发现问题。
 target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic)

@@ -8,8 +8,14 @@
 #include <exception>
 #include <sys/time.h>
 #include <cerrno>
+#include "logger.h"
+#include <system_error>
+#include <string>
 
 void handleClient(int clientFd){
+    //记录开始处理
+    LOGGER_INFO("开始处理客户端,fd=" + std::to_string(clientFd));
+
     //timeval：表示时间的结构体
     timeval timeout{};
     timeout.tv_sec = 30; //秒，当前设置为30
@@ -25,7 +31,11 @@ void handleClient(int clientFd){
     );
 
     if(recvTimeoutResult == -1){
-        perror("setsockopt SO_RCVTIMEO");
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("设置接收超时失败,关闭连接,fd=" + std::to_string(clientFd)
+             + ",errno=" + std::to_string(error) + "，原因=" + reason);
         close(clientFd);
         return;
     }
@@ -40,7 +50,11 @@ void handleClient(int clientFd){
     );
 
     if(sendTimeoutResult == -1){
-        perror("setsockopt SO_SNDTIMEO");
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("设置发送超时失败，关闭连接,fd=" + std::to_string(clientFd)
+             + ",errno=" + std::to_string(error) + "，原因=" + reason);
         close(clientFd);
         return;
     }
@@ -56,10 +70,14 @@ void handleClient(int clientFd){
         if(received == -1){
             const int error = errno; //保存错误编号
             if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
-                std::cerr << "客户端接收超时，关闭连接" << '\n';
+                LOGGER_WARN("客户端接收超时,关闭连接,fd=" + std::to_string(clientFd));
             }
             else{
-                perror("recv");
+                //std::error_code: 保存错误编号及其所属类别的对象
+                const std::error_code ec(error,std::generic_category()); //std::generic_category: 指定按通用类别解释
+                const std::string reason = ec.message(); //把编号转换成可阅读的文字说明
+                LOGGER_ERROR("接收失败,fd = " + std::to_string(clientFd)
+                            + ",error=" + std::to_string(error) + ",原因="  + reason);
             }
             break;
         }
@@ -68,7 +86,6 @@ void handleClient(int clientFd){
             std::cout << "对方已结束发送" << '\n';
             break;
         }
-
         if(received > 0){
             ssize_t totalSent = 0; //统计收到的数据中已经回显的字节数
 
@@ -89,17 +106,20 @@ void handleClient(int clientFd){
                 if(sent == -1){
                     const int error = errno; //保存错误编号
                     if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
-                        std::cerr << "客户端发送超时，关闭连接" << '\n';
+                        LOGGER_WARN("客户端发送超时,关闭连接,fd=" + std::to_string(clientFd));
                     }
                     else{
-                        perror("send");
+                        const std::error_code ec(error,std::generic_category()); //std::generic_category: 指定按通用类别解释
+                        const std::string reason = ec.message(); //把编号转换成可阅读的文字说明
+                        LOGGER_ERROR("发送失败,fd = " + std::to_string(clientFd)
+                                    + ",error=" + std::to_string(error) + ",原因="  + reason);
                     }
                     sendFailed = true;
                     break;
                 }
 
                 if(sent == 0){
-                    std::cerr << "本次没有取得发送进展" << std::endl;
+                    LOGGER_ERROR("发送未取得进展,关闭连接,fd=" + std::to_string(clientFd));
                     sendFailed = true;
                     break;
                 }
@@ -109,10 +129,24 @@ void handleClient(int clientFd){
             if(sendFailed)break;
         }
     }
+    LOGGER_INFO("结束处理客户端,fd=" + std::to_string(clientFd));
     close(clientFd);
 }
 
 int main(){
+    //准备日志配置
+    LoggerConfig logConfig;
+    logConfig.filePath = "server.log";
+    logConfig.minLevel = LogLevel::INFO;
+
+    //初始化日志库
+    const bool loggerReady = Logger::getInstance().init(logConfig);
+
+    if(!loggerReady){
+        std::cerr << "日志库初始化失败，服务器退出" << '\n';
+        return 1;
+    }
+
     //测试配置：1个工作线程，等待队列容量为1
     ThreadPool pool(1,1);
 
@@ -154,6 +188,22 @@ int main(){
         return 1;
     }
 
+    int reuse = 1; //提供一个整数开关，1表示开启
+    //按地址复用规则，允许重新使用本地址
+    int reuseResult = setsockopt(
+        listenFd,
+        SOL_SOCKET,
+        SO_REUSEADDR, //设置为地址复用
+        &reuse,
+        sizeof(reuse)
+    );
+
+    if(reuseResult == -1){
+        perror("setsockopt SO_REUSEADDR");
+        close(listenFd);
+        return 1;
+    }
+
     //调用bind()：给socket指定本地IP地址和端口。
     //bind(): 通用网络接口，接收sockaddr*,实际使用来专门保存IPv4地址的sockaddr_in
     int bindResult = bind(
@@ -183,6 +233,8 @@ int main(){
 
     std::cout << "开始监听,等待客户端连接" << std::endl;
 
+    LOGGER_INFO("服务器开始监听 127.0.0.1:8080");
+
     //主线程持续接收连接，将客户端收发任务交给线程池
     while(true){
         //存放客户端地址的空间
@@ -203,15 +255,15 @@ int main(){
             return 1;
         }
 
-        std::cout << "客户端已连接" << std::endl;
+        LOGGER_INFO("接收客户端连接,fd=" + std::to_string(clientFd));
 
         //保存函数handle和参数clientFd，交给线程池安排执行
         try{
             pool.enqueue(handleClient,clientFd);
         }
         catch(const std::exception& e){
-            std::cerr << "提交连接任务失败" << '\n';
-            std::cerr << e.what() << '\n';
+            LOGGER_ERROR("提交连接任务失败,关闭连接,fd=" + std::to_string(clientFd)
+                         + "，原因=" + e.what());
             close(clientFd);
         }
     }

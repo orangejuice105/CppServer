@@ -20,3 +20,5 @@ CMakeUserPresets.json
 *.swo
 *~
 .DS_Store
+*.log
+*.log.[0-9]*
