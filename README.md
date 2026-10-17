@@ -19,10 +19,10 @@
 
 ## 当前配置
 
-`src/main.cpp` 中保留了便于观察排队和拒绝行为的测试配置：
+当前保留了便于观察排队和拒绝行为的测试配置：
 
-- `ThreadPool pool(1, 1)`：1 个工作线程，最多 1 个任务等待执行。
-- 接收、发送超时均为 30 秒，在 `handleClient()` 开始处理连接时设置。
+- `src/main.cpp` 中的 `ThreadPool pool(1, 1)`：1 个工作线程，最多 1 个任务等待执行。
+- `src/tcp_connection.cpp` 中的接收、发送超时均为 30 秒，在 `handleClient()` 开始处理连接时设置。
 - 日志最低级别为 INFO，追加写入启动目录下的 `server.log`。
 
 队列容量只计算尚未被工作线程取走的任务，不包含正在执行的任务。
@@ -114,9 +114,13 @@ project3/
 ├── .gitignore
 ├── include/
 │   ├── thread_pool.h
+│   ├── tcp_connection.h
+│   ├── tcp_server.h
 │   └── logger.h
 ├── src/
 │   ├── main.cpp
+│   ├── tcp_connection.cpp
+│   ├── tcp_server.cpp
 │   ├── thread_pool.cpp
 │   └── logger.cpp
 └── tests/
@@ -125,6 +129,10 @@ project3/
     ├── README.md
     └── BASELINE.md
 ```
+
+`tcp_connection.h` 声明连接处理入口，`tcp_connection.cpp` 负责单个连接的超时、
+接收、回显和关闭。`tcp_server.h/.cpp` 提供 `runTcpServer()`，负责建立监听、接收
+连接并向线程池提交任务。`main.cpp` 负责初始化日志、创建线程池并调用服务器入口。
 
 ## 当前边界与后续方向
 

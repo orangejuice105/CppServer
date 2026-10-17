@@ -23,8 +23,12 @@ target_include_directories(logger PUBLIC
 )
 target_link_libraries(logger PUBLIC Threads::Threads)
 
-# 将入口文件编译为名叫 main 的可执行程序。
-add_executable(main src/main.cpp)
+# 将入口、服务器监听和客户端连接处理代码一起编译、链接为 main。
+add_executable(main
+    src/main.cpp
+    src/tcp_server.cpp
+    src/tcp_connection.cpp
+)
 target_link_libraries(main PRIVATE thread_pool logger)
 
 # 当前面向 Linux / WSL，开启常用编译警告帮助发现问题。

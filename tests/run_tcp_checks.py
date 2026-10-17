@@ -291,8 +291,9 @@ def main():
     args = parser.parse_args()
     selected = args.case or list(CASES)
     source = (PROJECT / 'src/main.cpp').read_text()
+    connection_source = (PROJECT / 'src/tcp_connection.cpp').read_text()
     assert re.search(r'ThreadPool\s+pool\(\s*1\s*,\s*1\s*\)', source), 'Expected pool(1,1) test configuration'
-    assert re.search(r'timeout\.tv_sec\s*=\s*30\s*;', source), 'Expected 30 second timeout'
+    assert re.search(r'timeout\.tv_sec\s*=\s*30\s*;', connection_source), 'Expected 30 second timeout'
     ROOT = Path(tempfile.mkdtemp(prefix='cppserver-tcp-checks-'))
     print(f'Artifacts: {ROOT}', flush=True)
     # 只探测端口；不终止用户已有服务。
@@ -319,7 +320,9 @@ def main():
         variant_path.write_text(variant)
         MULTI = ROOT / 'multi_main'
         subprocess.run(['g++', '-std=c++17', '-pthread', '-I', str(PROJECT / 'include'),
-                        str(variant_path), str(PROJECT / 'src/thread_pool.cpp'),
+                        str(variant_path), str(PROJECT / 'src/tcp_server.cpp'),
+                        str(PROJECT / 'src/tcp_connection.cpp'),
+                        str(PROJECT / 'src/thread_pool.cpp'),
                         str(PROJECT / 'src/logger.cpp'), '-o', str(MULTI)],
                        check=True, timeout=30)
     results = []
@@ -338,6 +341,8 @@ def main():
               f'{result.get("evidence", result.get("error"))}', flush=True)
         report = {'time': datetime.now(timezone(timedelta(hours=8))).isoformat(),
                   'main_sha256': hashlib.sha256((PROJECT / 'src/main.cpp').read_bytes()).hexdigest(),
+                  'server_sha256': hashlib.sha256((PROJECT / 'src/tcp_server.cpp').read_bytes()).hexdigest(),
+                  'connection_sha256': hashlib.sha256((PROJECT / 'src/tcp_connection.cpp').read_bytes()).hexdigest(),
                   'binary_sha256': hashlib.sha256(BINARY.read_bytes()).hexdigest(),
                   'artifacts': str(ROOT), 'results': results}
         (ROOT / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
