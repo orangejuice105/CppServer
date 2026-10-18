@@ -23,11 +23,12 @@ target_include_directories(logger PUBLIC
 )
 target_link_libraries(logger PUBLIC Threads::Threads)
 
-# 将入口、服务器监听和客户端连接处理代码一起编译、链接为 main。
+# 将入口、服务器监听、连接处理和 HTTP 请求解析代码一起编译、链接为 main。
 add_executable(main
     src/main.cpp
     src/tcp_server.cpp
     src/tcp_connection.cpp
+    src/http_request.cpp
 )
 target_link_libraries(main PRIVATE thread_pool logger)
 

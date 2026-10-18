@@ -1,0 +1,78 @@
+{
+  "time": "2026-10-17T15:06:38.432086+08:00",
+  "main_sha256": "c9c0fa1605f097d49d7789467c23414ce7a80d11601bf0d9a988647c783f3263",
+  "server_sha256": "d21380a9e0af3680e01e78ecf3558d7f099eaf4a8bf1be6b5cdae8641929ee90",
+  "connection_sha256": "6b14ee09f53693d4cb291a91b4b729bbc27a8c4da875571a7a6955e1a646e845",
+  "binary_sha256": "272a541493e32c82d952b0a761cecf52541116bd83691ca51a199d626465a2c0",
+  "artifacts": "/tmp/cppserver-tcp-checks-73k10ppp",
+  "results": [
+    {
+      "case": "basic",
+      "passed": true,
+      "evidence": "同一连接连续收发、UTF-8、二进制和分段发送，逐字节相同",
+      "seconds": 0.026
+    },
+    {
+      "case": "large",
+      "passed": true,
+      "evidence": "262144 字节（256 KiB），超过 1024 字节缓冲区，完整一致",
+      "seconds": 0.068
+    },
+    {
+      "case": "half_close",
+      "passed": true,
+      "evidence": "客户端结束发送后仍收到完整回显，随后读到 EOF",
+      "seconds": 0.023
+    },
+    {
+      "case": "overload",
+      "passed": true,
+      "evidence": "A 执行、B 排队、C 被关闭；A 结束后 B 被处理，拒绝连接未进入工作线程",
+      "seconds": 0.045
+    },
+    {
+      "case": "reconnect",
+      "passed": true,
+      "evidence": "连续连接 40 次，正常路径文件描述符数回到基线 5",
+      "seconds": 0.603
+    },
+    {
+      "case": "reset",
+      "passed": true,
+      "evidence": "客户端发送 RST，服务器记录错误并继续服务后续连接",
+      "seconds": 0.023
+    },
+    {
+      "case": "bind_conflict",
+      "passed": true,
+      "evidence": "第二进程返回 1，记录地址占用；原进程继续回显，各自日志独立",
+      "seconds": 0.026
+    },
+    {
+      "case": "multi",
+      "passed": true,
+      "evidence": "临时 (4,4) 配置副本：4 个连接均保持打开，4 个工作线程完成并发回显；主程序未改",
+      "seconds": 0.069
+    },
+    {
+      "case": "injected",
+      "passed": true,
+      "evidence": "注入 accept/recv 的 EINTR 各 1 次、send 的 EINTR 2 次；实际分批发送最多 17 字节，5020 字节无丢失重复。未模拟真实信号投递",
+      "seconds": 0.025
+    },
+    {
+      "case": "receive_timeout",
+      "passed": true,
+      "evidence": "原配置 30 秒接收超时，实测 31.54 秒；WARN 落盘且后续连接正常",
+      "seconds": 31.585
+    },
+    {
+      "case": "send_timeout",
+      "passed": true,
+      "evidence": "缩小测试连接缓冲区，客户端持续发送但不读响应；约 30.71 秒记录真实发送超时，后续连接正常",
+      "seconds": 30.733
+    }
+  ],
+  "commit": "61341af82e886409010bf46498479f139cc0dd73",
+  "command": "python3 tests/run_tcp_checks.py"
+}

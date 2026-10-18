@@ -1,15 +1,19 @@
-# TCP Echo Server
+# CppServer：阻塞式 HTTP 学习项目
 
-一个使用 C++17、Linux socket API、固定线程池和异步日志库实现的阻塞式 TCP 回显服务器学习项目。
-监听 `127.0.0.1:8080`，收到客户端数据后，将实际收到的字节原样发送回去。
+使用 C++17、Linux socket API、固定线程池和异步日志库，从 TCP Echo 逐步构建
+阻塞式 HTTP 服务器的学习项目。目前监听 `127.0.0.1:8080`，支持基础请求行解析，
+按路径构造文本响应，每个连接处理一次请求后关闭。
 
 ## 当前功能
 
 - 使用 `socket → bind → listen → accept` 建立服务端入口。
-- 同一个客户端可以连续发送数据，服务器循环接收和回显。
-- 发送循环记录已发送数量，处理一次发送未完成的情况。
+- 累积多次接收的数据，通过 `\r\n\r\n` 判断请求头结束，包含结束标记最多 8192 字节。
+- 解析请求行的方法、请求目标和版本，拒绝缺项及多余空格等基本结构错误。
+- 分离查询参数后匹配路径：`/hello`、`/health` 返回 200，未知路径返回 404。
+- 构造状态行、Content-Type、Content-Length 和 Connection: close，正文长度按字节计算。
+- `sendAll()` 记录发送进度，处理部分发送、中断、发送超时和其他发送错误。
 - 使用 `MSG_NOSIGNAL`，避免发送时产生 SIGPIPE 信号。
-- 主线程持续接收连接，工作线程处理客户端收发；客户端结束发送或收发失败后关闭该连接。
+- 主线程持续接收连接，工作线程处理请求；发送完成或失败后关闭该连接。
 - 连接收发与关闭集中在 `handleClient()` 函数中。
 - 线程池等待队列有容量上限，在同一把锁内检查容量并入队；满时抛出异常，服务器捕获后关闭新连接。
 - 为连接设置接收和发送超时，区分超时与其他收发错误。
@@ -40,47 +44,40 @@ cmake --build build
 ./build/main
 ```
 
-## 手动验证
+## HTTP 手动验证
 
-保留运行服务器的终端，在同一个 Linux / WSL 环境中新开一个终端。
-如果已安装 netcat，执行：
+保留运行服务器的终端，在同一个 Linux / WSL 环境中新开一个终端执行：
 
 ```bash
-nc 127.0.0.1 8080
+curl --http1.1 -i --max-time 3 http://127.0.0.1:8080/hello
+curl --http1.1 -i --max-time 3 http://127.0.0.1:8080/health
+curl --http1.1 -i --max-time 3 http://127.0.0.1:8080/missing
+curl --http1.1 -i --max-time 3 'http://127.0.0.1:8080/hello?name=Tom'
 ```
 
-输入文本并回车，客户端会显示服务器返回的内容。可以连续输入多次。
-在客户端终端按 `Ctrl+C` 退出后，再连接一次，服务器应继续提供回显。
+| 路径 | 状态 | 正文 | Content-Length |
+|---|---|---|---|
+| `/hello` | 200 OK | `Hello,HTTP!` 加换行 | 12 |
+| `/health` | 200 OK | `OK` 加换行 | 3 |
+| `/missing` | 404 Not Found | `Not Found` 加换行 | 10 |
+| `/hello?name=Tom` | 200 OK | `Hello,HTTP!` 加换行 | 12 |
 
-验证当前配置的排队和拒绝行为：
-
-1. 客户端 A 连接并完成一次回显，保持连接，占用唯一的工作线程。
-2. 客户端 B 连接并发送数据，任务排队，暂时没有回显。
-3. 客户端 C 连接，队列已满，服务器打印提交失败和队列满的原因，关闭 C。
-4. 退出 A，工作线程开始处理 B，B 收到此前发送的数据的回显。
-
-在 A 的 30 秒接收超时前完成测试，或持续向 A 发送数据。若 A 已超时退出，
-工作线程和队列状态会改变。C 的 TCP 连接可能先建立再被关闭，拒绝发生在
-`accept()` 之后的任务提交阶段。
-
-验证接收超时：客户端连接后停止输入约 30 秒，服务器应输出接收超时提示，
-关闭该连接并继续服务。发送超时需要大量数据和不读取响应的客户端，普通
-文本回显不容易触发。
+正文之后连接关闭。收到 404 后，再请求 `/health` 应仍正常。请求行解析成功时，
+日志记录方法、完整目标和版本，例如 `方法=GET,目标=/hello,版本=HTTP/1.1`。
 
 在服务器终端按 `Ctrl+C` 可以停止进程，此时资源由操作系统回收。
 当前没有主动结束主循环的优雅退出机制。
 
-## TCP 阶段自动检查
+## 验证记录
 
-```bash
-python3 tests/run_tcp_checks.py
-```
+2026-10-18 已手动验证上述路径响应及查询参数匹配。请求行解析函数的 10 项
+基本结构测试通过，CMake 构建通过。
 
-11 项检查覆盖连续与大数据回显、半关闭、排队拒绝、描述符回收、RST、地址
-占用、多线程配置副本、中断返回值注入和真实收发超时。检查使用独立临时目录，
-不修改正式程序配置；运行前需释放 8080 端口。
-方法、运行条件及验证边界见 [tests/README.md](tests/README.md)，实测见
-[tests/BASELINE.md](tests/BASELINE.md)。
+历史 TCP Echo 完整 11 项检查见 [tests/BASELINE.md](tests/BASELINE.md)；
+仅接收和打印请求头时的 16 项检查见
+[tests/HTTP_HEADER_BASELINE.md](tests/HTTP_HEADER_BASELINE.md)。完整历史报告
+保存在 `tests/reports/`。这些结果对应当时源码，不代表当前版本完成了同等全套回归。
+旧脚本的预期行为与当前 HTTP 响应不同，适用范围见 [tests/README.md](tests/README.md)。
 
 ## 查看日志
 
@@ -116,22 +113,28 @@ project3/
 │   ├── thread_pool.h
 │   ├── tcp_connection.h
 │   ├── tcp_server.h
+│   ├── http_request.h
 │   └── logger.h
 ├── src/
 │   ├── main.cpp
 │   ├── tcp_connection.cpp
 │   ├── tcp_server.cpp
+│   ├── http_request.cpp
 │   ├── thread_pool.cpp
 │   └── logger.cpp
 └── tests/
     ├── run_tcp_checks.py
+    ├── run_http_header_checks.py
     ├── socket_test_shim.cpp
     ├── README.md
-    └── BASELINE.md
+    ├── BASELINE.md
+    ├── HTTP_HEADER_BASELINE.md
+    └── reports/
 ```
 
 `tcp_connection.h` 声明连接处理入口，`tcp_connection.cpp` 负责单个连接的超时、
-接收、回显和关闭。`tcp_server.h/.cpp` 提供 `runTcpServer()`，负责建立监听、接收
+接收、路由、响应发送和关闭。`http_request.h/.cpp` 保存请求行结果并完成基本解析。
+`tcp_server.h/.cpp` 提供 `runTcpServer()`，负责建立监听、接收
 连接并向线程池提交任务。`main.cpp` 负责初始化日志、创建线程池并调用服务器入口。
 
 ## 当前边界与后续方向
@@ -139,4 +142,6 @@ project3/
 仅监听本机回环地址；`accept()` 失败仍会停止主线程接收连接，线程池析构会等待
 已接受任务完成。`accept/recv/send` 已处理 `EINTR` 重试，目前没有优雅退出机制。
 阻塞收发期间会占用工作线程，超时不是整个连接或请求的总时限。
-TCP 基础阶段完成后，继续学习 HTTP 与非阻塞 I/O。
+方法和版本目前只提取，尚未限制支持范围；未完整验证请求头、处理请求体或支持
+keep-alive。基本解析失败或请求头超长时仍直接关闭连接，尚未返回对应 HTTP 错误。
+后续继续完善 HTTP 错误处理、拆分响应与路径模块，再学习非阻塞 I/O。

@@ -1,0 +1,118 @@
+{
+  "time": "2026-10-17T23:25:55.564069+08:00",
+  "scope": "request-header reception; no HTTP parsing or response yet",
+  "temporary_port": 53287,
+  "artifacts": "/tmp/cppserver-header-checks-uhiegawl",
+  "sources_sha256": {
+    "src/main.cpp": "c9c0fa1605f097d49d7789467c23414ce7a80d11601bf0d9a988647c783f3263",
+    "src/tcp_server.cpp": "d21380a9e0af3680e01e78ecf3558d7f099eaf4a8bf1be6b5cdae8641929ee90",
+    "src/tcp_connection.cpp": "c4ca9a96858020d660dd9659be22e457668f69163efe1adc57e1ec46939b2313",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332",
+    "src/logger.cpp": "7ffe9072eaf4499e856362e906b46d24ca8ee835ede38f3dfbd4d92344ea1892",
+    "include/tcp_server.h": "38628d78c4d06019ad95a2f187bd47e02d8ba111452a71de0f08188d6f1a45bf",
+    "include/tcp_connection.h": "8fa7ef57cc71fab00b2637acccc0cc00c9113e3259ba2000fce66cb86c1560a4",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "tests/run_http_header_checks.py": "351478da734d85f6ef10cfe4c68d384bb3f80cd0f706d4e08636e90edc17d4ec",
+    "tests/socket_test_shim.cpp": "afb6a0d0bf51de8f31a77ad1f5d4ef9c92ed525071d9e007cd2cdeda9a531099"
+  },
+  "binary_sha256": "1618284c7f4ba94065b1a78e525652a037cd58ccbb493e22236e91f762bda4dc",
+  "results": [
+    {
+      "case": "basic",
+      "passed": true,
+      "evidence": "完整请求头逐字节打印，处理后关闭连接",
+      "seconds": 0.014
+    },
+    {
+      "case": "split_line",
+      "passed": true,
+      "evidence": "请求行分两次发送；第一段不打印、不关闭，补齐后完整打印",
+      "seconds": 0.174
+    },
+    {
+      "case": "split_terminator",
+      "passed": true,
+      "evidence": "CRLFCRLF 的三个内部切分位置全部通过，未提前打印或关闭",
+      "seconds": 0.521
+    },
+    {
+      "case": "bytewise",
+      "passed": true,
+      "evidence": "逐字节发送，最后一个结束标记字节到达后才打印；未假设 send 与 recv 一一对应",
+      "seconds": 0.278
+    },
+    {
+      "case": "multi_buffer",
+      "passed": true,
+      "evidence": "6000 字节请求头跨越多个 1024 字节接收缓冲区，完整一致",
+      "seconds": 0.013
+    },
+    {
+      "case": "exact_limit",
+      "passed": true,
+      "evidence": "包含结束标记共 8192 字节，正常打印，没有超长警告",
+      "seconds": 0.013
+    },
+    {
+      "case": "incomplete_limit",
+      "passed": true,
+      "evidence": "8192 字节且无结束标记，0.000 秒关闭并记录 WARN，没有等待接收超时",
+      "seconds": 0.013
+    },
+    {
+      "case": "oversized",
+      "passed": true,
+      "evidence": "结束标记补齐后总长 8193 字节，触发完整请求头超长分支并关闭",
+      "seconds": 0.173
+    },
+    {
+      "case": "trailing_data",
+      "passed": true,
+      "evidence": "请求头后附带额外字节，只打印到第一个结束标记，未把额外字节计入头部",
+      "seconds": 0.013
+    },
+    {
+      "case": "half_close",
+      "passed": true,
+      "evidence": "完整请求后客户端关闭发送方向，服务端仍完整打印并关闭",
+      "seconds": 0.013
+    },
+    {
+      "case": "early_eof",
+      "passed": true,
+      "evidence": "不完整请求提前 EOF，未打印成完整请求，连接释放且后续请求正常",
+      "seconds": 0.174
+    },
+    {
+      "case": "reset",
+      "passed": true,
+      "evidence": "请求未完成时客户端 RST，记录接收失败，后续连接正常打印",
+      "seconds": 0.174
+    },
+    {
+      "case": "reconnect",
+      "passed": true,
+      "evidence": "连续 40 次连接内容准确，正常路径文件描述符数回到基线 5",
+      "seconds": 0.024
+    },
+    {
+      "case": "overload",
+      "passed": true,
+      "evidence": "A 等待补齐请求头，B 排队，C 被拒绝；补齐 A 后按顺序打印 A、B",
+      "seconds": 0.185
+    },
+    {
+      "case": "injected",
+      "passed": true,
+      "evidence": "注入 accept、recv 的 EINTR 各一次，重试后请求头仍完整；不代表真实信号测试",
+      "seconds": 0.013
+    },
+    {
+      "case": "receive_timeout",
+      "passed": true,
+      "evidence": "不完整请求停止发送，真实接收超时约 30.11 秒，WARN 落盘且后续连接正常",
+      "seconds": 30.285
+    }
+  ]
+}
