@@ -1,0 +1,493 @@
+{
+  "time": "2026-10-19T22:53:58.735892+08:00",
+  "scope": "Current HTTP request/header syntax, routing, methods, versions, responses and logging; targeted checks only",
+  "build": {
+    "command": "cmake --build build -j2",
+    "passed": true
+  },
+  "source_sha256": {
+    "include/http_request.h": "bf809fcfec487011be64239130aec457d343ebad41d16d6ec671f0c1f7cf83d2",
+    "src/http_request.cpp": "1126a894752527120040c683701be350c6122117a232ce8adf5278800cefb4b8",
+    "src/tcp_connection.cpp": "a10147945f4bfa8385b06241115886d6d61c306d838e920c868ddb1f8ec084f1",
+    "src/tcp_server.cpp": "d21380a9e0af3680e01e78ecf3558d7f099eaf4a8bf1be6b5cdae8641929ee90",
+    "src/main.cpp": "4f70c01b136895610c12e7749511cfbd82b1c51d9607854e6b61c86ac4286d56",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "src/logger.cpp": "7ffe9072eaf4499e856362e906b46d24ca8ee835ede38f3dfbd4d92344ea1892",
+    "CMakeLists.txt": "66e2338e8b2d4c08eb9eda80b6ff533c533c1c44c2564ab78e1b46c7abf28520"
+  },
+  "parser_checks": {
+    "passed": 20,
+    "total": 20,
+    "compiler_options": [
+      "-std=c++17",
+      "-pthread",
+      "-Wall",
+      "-Wextra",
+      "-Wpedantic",
+      "-fsanitize=undefined",
+      "-fno-sanitize-recover=undefined"
+    ],
+    "artifacts": "/tmp/cppserver-header-block-review-dtrah3o6",
+    "results": [
+      {
+        "index": 0,
+        "passed": true,
+        "stdout": "PASS two_fields\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 1,
+        "passed": true,
+        "stdout": "PASS case_and_trim\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 2,
+        "passed": true,
+        "stdout": "PASS repeated_fields\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 3,
+        "passed": true,
+        "stdout": "PASS empty_value\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 4,
+        "passed": true,
+        "stdout": "PASS whitespace_value\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 5,
+        "passed": true,
+        "stdout": "PASS no_fields_syntax_only\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 6,
+        "passed": true,
+        "stdout": "PASS colon_in_value\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 7,
+        "passed": true,
+        "stdout": "PASS internal_tab\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 8,
+        "passed": true,
+        "stdout": "PASS missing_colon\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 9,
+        "passed": true,
+        "stdout": "PASS space_before_colon\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 10,
+        "passed": true,
+        "stdout": "PASS leading_space\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 11,
+        "passed": true,
+        "stdout": "PASS control_in_value\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 12,
+        "passed": true,
+        "stdout": "PASS empty_field_name\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 13,
+        "passed": true,
+        "stdout": "PASS extra_after_blank\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 14,
+        "passed": true,
+        "stdout": "PASS no_first_crlf\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 15,
+        "passed": true,
+        "stdout": "PASS empty_input\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 16,
+        "passed": true,
+        "stdout": "PASS unterminated_field\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 17,
+        "passed": true,
+        "stdout": "PASS failure_preserves_headers\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 18,
+        "passed": true,
+        "stdout": "PASS missing_blank_after_request_line\n",
+        "stderr": "",
+        "returncode": 0
+      },
+      {
+        "index": 19,
+        "passed": true,
+        "stdout": "PASS missing_blank_after_fields\n",
+        "stderr": "",
+        "returncode": 0
+      }
+    ]
+  },
+  "network_checks": {
+    "time": "2026-10-19T22:53:19.136076+08:00",
+    "scope": "header parsing and log integration; route/method/version regression; temporary port only",
+    "artifacts": "/tmp/cppserver-version-checks-1u2asup3",
+    "temporary_port": 56641,
+    "results": [
+      {
+        "case": "hello",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "health",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 3
+      },
+      {
+        "case": "missing",
+        "passed": true,
+        "status": 404,
+        "body_bytes": 10
+      },
+      {
+        "case": "query",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "post",
+        "passed": true,
+        "status": 405,
+        "body_bytes": 19
+      },
+      {
+        "case": "unknown_method",
+        "passed": true,
+        "status": 501,
+        "body_bytes": 16
+      },
+      {
+        "case": "head",
+        "passed": true,
+        "status": 405,
+        "body_bytes": 0
+      },
+      {
+        "case": "empty_target",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "head_empty_target",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 0
+      },
+      {
+        "case": "missing_version",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "head_only",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 0
+      },
+      {
+        "case": "split_invalid",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "http10",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "http12",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "http19",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "major2",
+        "passed": true,
+        "status": 505,
+        "body_bytes": 27
+      },
+      {
+        "case": "major0",
+        "passed": true,
+        "status": 505,
+        "body_bytes": 27
+      },
+      {
+        "case": "major9",
+        "passed": true,
+        "status": 505,
+        "body_bytes": 27
+      },
+      {
+        "case": "minor_letter",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "major_letter",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "lowercase",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "bad_prefix",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "bad_slash",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "bad_dot",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "long_major",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "long_minor",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "short_version",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "version_only_prefix",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "version_tab",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "version_nul",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "head_major2",
+        "passed": true,
+        "status": 505,
+        "body_bytes": 0
+      },
+      {
+        "case": "head_bad_version",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 0
+      },
+      {
+        "case": "head_http10",
+        "passed": true,
+        "status": 405,
+        "body_bytes": 0
+      },
+      {
+        "case": "post_http10",
+        "passed": true,
+        "status": 405,
+        "body_bytes": 19
+      },
+      {
+        "case": "unknown_http10",
+        "passed": true,
+        "status": 501,
+        "body_bytes": 16
+      },
+      {
+        "case": "missing_http10",
+        "passed": true,
+        "status": 404,
+        "body_bytes": 10
+      },
+      {
+        "case": "version_before_method",
+        "passed": true,
+        "status": 505,
+        "body_bytes": 27
+      },
+      {
+        "case": "version_before_unknown",
+        "passed": true,
+        "status": 505,
+        "body_bytes": 27
+      },
+      {
+        "case": "version_before_route",
+        "passed": true,
+        "status": 505,
+        "body_bytes": 27
+      },
+      {
+        "case": "headers_normal",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_trim_case",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_repeated",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_empty",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_colon_value",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_missing_colon",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_space_before_colon",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_control",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 12
+      },
+      {
+        "case": "headers_head_invalid",
+        "passed": true,
+        "status": 400,
+        "body_bytes": 0
+      },
+      {
+        "case": "headers_split_valid",
+        "passed": true,
+        "status": 200,
+        "body_bytes": 12
+      }
+    ],
+    "source_sha256": {
+      "src/tcp_connection.cpp": "a10147945f4bfa8385b06241115886d6d61c306d838e920c868ddb1f8ec084f1",
+      "src/http_request.cpp": "1126a894752527120040c683701be350c6122117a232ce8adf5278800cefb4b8"
+    }
+  },
+  "temporary_test_tools": {
+    "/tmp/cppserver-header-block-review-dtrah3o6/check.cpp": "365d4bd68f323a7fc51d08ea06704943fae37a5fad471841339fa7e255f8f150",
+    "/tmp/cppserver-header-block-review-dtrah3o6/run.py": "8954919287b8534a4d0f0fc3718f58adc08eea480b6569110fb5cc0c43c7fe18",
+    "/tmp/cppserver-header-block-review-dtrah3o6/network.py": "9119b80a5e0ce9669c01e72ed7d17721aa5f61d1d803507310c1435ef162a224"
+  },
+  "limits": [
+    "Temporary test tools and raw logs are local artifacts and are not included in this repository.",
+    "No full current-HTTP regression of actual 30-second receive/send timeouts, queue overload, descriptor reuse, EINTR injection, reset handling or size limits was run in this batch.",
+    "Generic header syntax is checked; Host semantics and request body framing have not been implemented.",
+    "Historical Echo/header-only reports describe their original source snapshots, not this version."
+  ]
+}

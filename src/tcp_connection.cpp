@@ -162,47 +162,106 @@ void handleClient(int clientFd){
                     //创建结果对象并调用解析函数
                     HttpRequest httpRequest;
 
-                    if (!parseRequestLine(requestLine, httpRequest)) {
-                        LOGGER_WARN("请求行基本格式错误,fd=" + std::to_string(clientFd));
-                        break;
-                    }
+                    //请求行基本格式错误时的处理
+                    bool parsed = parseRequestLine(requestLine, httpRequest);
 
-                    LOGGER_INFO("方法=" + httpRequest.method
-                                + ",目标=" + httpRequest.target
-                                + ",版本=" + httpRequest.version);
+                    //请求行解析成功则解析所有请求头字段
+                    if (parsed) {
+                        std::string requestHead = request.substr(0, headerEnd + 4);
+                        parsed = parseRequestHeaders(requestHead, httpRequest);
+                    }
 
                     //准备响应体
                     int statusCode = 200; //状态码
                     std::string reasonPhrase = "OK"; //状态的文字说明
                     std::string body; //根据路径选择出来的正文
+                    std::string responseVersion = "HTTP/1.1";
 
-                    //请求目标可能包含查询参数/hello?name=Tom ,所以要先找到?再截取
-                                          //└─路径─┘└查询参数┘
-                    std::size_t queryPos = httpRequest.target.find("?");
-                    std::string path = httpRequest.target.substr(0,queryPos);
+                    //从原始请求行取第一个词，看是什么方法
+                    std::size_t methodEnd = requestLine.find(' ');
+                    const std::string method = requestLine.substr(0,methodEnd);
 
-                    //处理不同路径分支
-                    if(path == "/hello"){
-                        body = "Hello,HTTP!\n";
+                    //解析失败时填写400响应信息
+                    if(!parsed){
+                        LOGGER_WARN("HTTP请求格式错误,fd=" + std::to_string(clientFd));
+                        statusCode = 400; //400表示请求语法等方面的客户端错误
+                        reasonPhrase = "Bad Request";
+                        body = "Bad Request\n";
                     }
+                    else{
+                        //观察
+                        for (const HttpHeader& header : httpRequest.headers) {
+                            LOGGER_INFO("请求头:" + header.name + "=" + header.value);
+                        }
 
-                    else if(path == "/health"){
-                        body = "OK\n";
-                    }
+                        LOGGER_INFO("方法=" + httpRequest.method
+                                + ",目标=" + httpRequest.target
+                                + ",版本=" + httpRequest.version);
 
-                    else {
-                        statusCode = 404;
-                        reasonPhrase = "Not Found";
-                        body = "Not Found\n";
+                        //请求目标可能包含查询参数/hello?name=Tom ,所以要先找到?再截取
+                                              //└─路径─┘└查询参数┘
+                        std::size_t queryPos = httpRequest.target.find("?");
+                        std::string path = httpRequest.target.substr(0,queryPos);
+
+                        //检查请求方法，明确服务器允许什么操作
+                        //认识的方法返回true
+                        bool knownMethod =
+                                method == "GET" || method == "HEAD" || method == "POST" ||
+                                method == "PUT" || method == "DELETE" || method == "CONNECT" ||
+                                method == "OPTIONS" || method == "TRACE" || method == "PATCH";
+
+                        //主版本检查
+                        if (httpRequest.version[5] != '1') {
+                            statusCode = 505;
+                            reasonPhrase = "HTTP Version Not Supported";
+                            body = "Only HTTP/1.x is supported\n";
+                        }
+
+                        //对不认识的方法处理
+                        else if(!knownMethod){
+                            statusCode = 501; //501表示服务器不认识遇到的方法
+                            reasonPhrase = "Not Implemented";
+                            body = "Not Implemented\n";
+                        }
+                        //再处理认识但不允许的方法
+                        else if(method != "GET"){
+                            statusCode = 405; //405表示该资源不允许这个方法
+                            reasonPhrase = "Method Not Allowed";
+                            body = "Method Not Allowed\n";
+                        }
+
+                        //处理不同路径分支
+                        else if(path == "/hello"){
+                            body = "Hello,HTTP!\n";
+                        }
+
+                        else if(path == "/health"){
+                            body = "OK\n";
+                        }
+
+                        else {
+                            statusCode = 404;
+                            reasonPhrase = "Not Found";
+                            body = "Not Found\n";
+                        }
+
                     }
 
                     //构造完整响应
-                    std::string response = "HTTP/1.1 " + std::to_string(statusCode) + " " + reasonPhrase + "\r\n";
+                    if (httpRequest.version == "HTTP/1.0") {
+                        responseVersion = "HTTP/1.0";
+                    }
+                    std::string response = responseVersion + " " + std::to_string(statusCode) + " " + reasonPhrase + "\r\n";
+                    //遇到不允许的方法时，告诉客户端哪些方法允许
+                    if(statusCode == 405){
+                        response += "Allow: GET\r\n";
+                    }
                     response += "Content-Type: text/plain; charset=utf-8\r\n";
-                    response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+                    //处理HEAD的特殊需求; HEAD: 请求即使收到错误相应，服务器也不能发送正文
+                    if(method != "HEAD")response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
                     response += "Connection: close\r\n";
                     response += "\r\n";
-                    response += body;
+                    if(method != "HEAD")response += body;
 
                     //发送完整响应
                     if(sendAll(clientFd,response)){
