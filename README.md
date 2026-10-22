@@ -9,12 +9,18 @@
 - 使用 `socket → bind → listen → accept` 建立服务端入口。
 - 累积多次接收的数据，通过 `\r\n\r\n` 判断请求头结束，包含结束标记最多 8192 字节。
 - 解析请求行的方法、请求目标和版本，拒绝缺项及多余空格等基本结构错误。
+- 校验方法 token 和目标字符；解析普通路径、http 绝对 URI、CONNECT 主机与端口及 OPTIONS 星号目标。
 - 校验版本字符串格式；接受 HTTP/1.x，对其他主版本返回 505；HTTP/1.0 请求使用 HTTP/1.0 响应，其余使用 HTTP/1.1 响应。
 - 解析全部请求头字段并保存到 `HttpRequest::headers`：检查字段名和字段值字符，字段名转为小写，去掉值两端的空格和制表符，保留字段顺序及重复字段。
+- 校验 Host 的数量和值；HTTP/1.1 必须包含一个 Host，HTTP/1.0 允许省略，支持方括号 IPv6 地址。
+- 校验 Content-Length；拒绝重复或非数字的值，当前正文长度上限为 0，非零长度返回 413。
+- 解析 Transfer-Encoding 的有序列表、参数和引号值，检查 chunked 必须唯一且位于末尾；拒绝与 Content-Length 同时出现及 HTTP/1.0 使用传输编码。
+- 通过传输编码检查的请求暂时返回 501，因为当前尚未实现请求正文解码。
 - 请求行或字段解析失败时返回 400；已知但不允许的方法返回 405 并附带 `Allow: GET`，未知方法返回 501。
 - 当前仅允许 GET；HEAD 返回错误响应时省略正文和 Content-Length。
 - 分离查询参数后匹配路径：`/hello`、`/health` 返回 200，未知路径返回 404。
-- 构造状态行、Content-Type、Content-Length 和 Connection: close，正文长度按字节计算。
+- 由独立响应模块构造状态行、Date、Content-Type、Content-Length 和 Connection: close，正文长度按字节计算。
+- Date 使用 UTC、英文星期和月份及 GMT 标记，不受本地时区和全局 C++ 语言环境影响；时间获取或格式化失败时省略该字段。
 - `sendAll()` 记录发送进度，处理部分发送、中断、发送超时和其他发送错误。
 - 使用 `MSG_NOSIGNAL`，避免发送时产生 SIGPIPE 信号。
 - 主线程持续接收连接，工作线程处理请求；发送完成或失败后关闭该连接。
@@ -75,6 +81,14 @@ curl --http1.1 -i --max-time 3 'http://127.0.0.1:8080/hello?name=Tom'
 
 ## 验证记录
 
+2026-10-22 当前源码通过 CMake 构建、4 项日期生成检查和 41 项临时端口 HTTP 检查。
+日期检查覆盖 UTC、上海、纽约时区及自定义非英文全局 C++ 语言环境；每项均校验格式和实际 UTC 时间。
+HTTP 检查覆盖常用路径、方法、HEAD、版本、Content-Length、Transfer-Encoding 及分次发送。
+全部响应均含一个格式正确且时间有效的 Date，去掉该字段后与此前验证过的响应字节一致。
+检查启用未定义行为检测，未发现诊断；本轮未重跑真实 30 秒收发超时、并发、队列满及描述符回收检查。
+报告见 [tests/reports/http-transfer-date-2026-10-22.json](tests/reports/http-transfer-date-2026-10-22.json)。
+本轮工具和原始输出保留在报告对应的本机临时目录，报告不代表完整阶段验收。
+
 2026-10-19 本轮 CMake 构建、20 项整块请求头解析函数检查和 49 项临时端口 HTTP
 检查通过。网络检查覆盖路径、方法、版本、错误响应、头字段规范化、重复字段保留、
 非法字段拒绝、日志及分次发送。函数检查包含缺少结束空行的失败路径，并启用未定义
@@ -123,12 +137,14 @@ project3/
 │   ├── tcp_connection.h
 │   ├── tcp_server.h
 │   ├── http_request.h
+│   ├── http_response.h
 │   └── logger.h
 ├── src/
 │   ├── main.cpp
 │   ├── tcp_connection.cpp
 │   ├── tcp_server.cpp
 │   ├── http_request.cpp
+│   ├── http_response.cpp
 │   ├── thread_pool.cpp
 │   └── logger.cpp
 └── tests/
@@ -142,7 +158,9 @@ project3/
 ```
 
 `tcp_connection.h` 声明连接处理入口，`tcp_connection.cpp` 负责单个连接的超时、
-接收、路由、响应发送和关闭。`http_request.h/.cpp` 保存请求行及字段结果，并完成基本语法解析。
+接收、路由、响应发送和关闭。`http_request.h/.cpp` 保存请求行及字段结果，完成请求目标、
+Host、Content-Length 和 Transfer-Encoding 的解析与校验。
+`http_response.h/.cpp` 负责生成 HTTP 日期并组装完整响应。
 `tcp_server.h/.cpp` 提供 `runTcpServer()`，负责建立监听、接收
 连接并向线程池提交任务。`main.cpp` 负责初始化日志、创建线程池并调用服务器入口。
 
@@ -151,8 +169,7 @@ project3/
 仅监听本机回环地址；`accept()` 失败仍会停止主线程接收连接，线程池析构会等待
 已接受任务完成。`accept/recv/send` 已处理 `EINTR` 重试，目前没有优雅退出机制。
 阻塞收发期间会占用工作线程，超时不是整个连接或请求的总时限。
-请求行的方法和目标尚未完成全部字符及形式检查；头字段目前只有通用语法检查，
-尚未校验 Host 是否缺失、重复或值无效，也未解释 Content-Length、Transfer-Encoding
-及请求体边界。不处理请求体，不支持 keep-alive；头部超长或接收超时仍直接关闭连接，
-尚未返回对应 HTTP 错误。后续继续完善请求校验及错误处理、拆分响应与路径模块，
-完成阻塞式 HTTP 阶段验收，再学习非阻塞 I/O。
+当前只提供 GET 文本响应，不接收非零长度正文；合法的传输编码请求暂时返回 501，
+尚未实现 chunked 正文解码，因此还不能称为完整的 HTTP/1.1 实现。不支持 keep-alive；
+头部超长或接收超时仍直接关闭连接，尚未返回对应 HTTP 错误。
+后续继续完善错误响应、拆分路径处理模块并完成阻塞式 HTTP 阶段验收，再学习非阻塞 I/O。

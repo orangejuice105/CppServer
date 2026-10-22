@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <cstddef>
 #include "http_request.h"
+#include <vector>
+#include "http_response.h"
 
 //负责完整发送响应
 bool sendAll(int clientFd,const std::string& data){
@@ -197,11 +199,13 @@ void handleClient(int clientFd){
                         LOGGER_INFO("方法=" + httpRequest.method
                                 + ",目标=" + httpRequest.target
                                 + ",版本=" + httpRequest.version);
+                        LOGGER_INFO("目标主机与端口=" + httpRequest.authority
+                                    + ",路径与查询=" + httpRequest.pathAndQuery);
 
                         //请求目标可能包含查询参数/hello?name=Tom ,所以要先找到?再截取
                                               //└─路径─┘└查询参数┘
-                        std::size_t queryPos = httpRequest.target.find("?");
-                        std::string path = httpRequest.target.substr(0,queryPos);
+                        std::size_t queryPos = httpRequest.pathAndQuery.find("?");
+                        std::string path = httpRequest.pathAndQuery.substr(0,queryPos);
 
                         //检查请求方法，明确服务器允许什么操作
                         //认识的方法返回true
@@ -210,11 +214,80 @@ void handleClient(int clientFd){
                                 method == "PUT" || method == "DELETE" || method == "CONNECT" ||
                                 method == "OPTIONS" || method == "TRACE" || method == "PATCH";
 
+                        //检查有没有Transfer-Encoding字段
+                        const bool hasTransferEncoding = hasRequestHeader(httpRequest, "transfer-encoding");
+
+                        //检查有没有Content-Length字段
+                        const bool hasContentLength = hasRequestHeader(httpRequest, "content-length");
+
+                        std::vector<std::string> transferCodings; //接收解析得到的编码列表
+
                         //主版本检查
                         if (httpRequest.version[5] != '1') {
                             statusCode = 505;
                             reasonPhrase = "HTTP Version Not Supported";
                             body = "Only HTTP/1.x is supported\n";
+                        }
+
+                        //检查host数量是否合格
+                        else if(!validateHostHeader(httpRequest)){
+                            statusCode = 400;
+                            reasonPhrase = "Bad Request";
+                            body = "Bad Request\n";
+                            LOGGER_WARN("host字段校验失败,fd=" + std::to_string(clientFd));
+                        }
+
+                        //检查HTTP/1.0请求是否使用Transfer-Encoding
+                        else if(hasTransferEncoding && httpRequest.version == "HTTP/1.0"){
+                            statusCode = 400;
+                            reasonPhrase = "Bad Request";
+                            body = "Bad Request\n";
+                            LOGGER_WARN("HTTP/1.0 请求不能使用 Transfer-Encoding");
+                        }
+
+                        //检查请求是否同时包含Transfer-Encoding 和 Content-Length
+                        else if (hasTransferEncoding && hasContentLength){
+                            statusCode = 400;
+                            reasonPhrase = "Bad Request";
+                            body = "Bad Request\n";
+                            LOGGER_WARN("请求同时包含 Transfer-Encoding 和 Content-Length");
+                        }
+
+                        //解析传输编码字段
+                        else if(hasTransferEncoding && !parseTransferEncodingHeaders(httpRequest,transferCodings)){
+                            statusCode = 400;
+                            reasonPhrase = "Bad Request";
+                            body = "Bad Request\n";
+                        }
+
+                        //检查编码顺序
+                        else if(hasTransferEncoding && !validateRequestTransferCodingOrder(transferCodings)){
+                            statusCode = 400;
+                            reasonPhrase = "Bad Request";
+                            body = "Bad Request\n";
+                        }
+
+                        //处理当前未实现的正文解码
+                        else if(hasTransferEncoding){
+                            statusCode = 501;
+                            reasonPhrase = "Not Implemented";
+                            body = "Not Implemented\n";
+                            LOGGER_WARN("当前服务器尚未实现传输编码请求正文的解码");
+                        }
+
+                        //检查Content-Length是否合法
+                        else if (!validateContentLengthHeader(httpRequest)) {
+                            statusCode = 400;
+                            reasonPhrase = "Bad Request";
+                            body = "Bad Request\n";
+                        }
+
+                        //检查合法Content-Length的长度是否大于0
+                        else if (hasNonZeroContentLength(httpRequest)){
+                            statusCode = 413; //413表示请求正文超过服务器愿意或能够处理的大小
+                            reasonPhrase = "Content Too Large";
+                            body = "Request body is not supported\n";
+                            LOGGER_WARN("当前服务器不接受非零长度的请求正文");
                         }
 
                         //对不认识的方法处理
@@ -251,17 +324,10 @@ void handleClient(int clientFd){
                     if (httpRequest.version == "HTTP/1.0") {
                         responseVersion = "HTTP/1.0";
                     }
-                    std::string response = responseVersion + " " + std::to_string(statusCode) + " " + reasonPhrase + "\r\n";
-                    //遇到不允许的方法时，告诉客户端哪些方法允许
-                    if(statusCode == 405){
-                        response += "Allow: GET\r\n";
-                    }
-                    response += "Content-Type: text/plain; charset=utf-8\r\n";
-                    //处理HEAD的特殊需求; HEAD: 请求即使收到错误相应，服务器也不能发送正文
-                    if(method != "HEAD")response += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-                    response += "Connection: close\r\n";
-                    response += "\r\n";
-                    if(method != "HEAD")response += body;
+
+                    //返回完整响应字符串
+                    std::string response = buildHttpResponse(
+                        responseVersion, statusCode, reasonPhrase, body, method == "HEAD");
 
                     //发送完整响应
                     if(sendAll(clientFd,response)){

@@ -1,0 +1,1419 @@
+{
+  "scope": "Current source Date generation and HTTP loopback checks for Transfer-Encoding integration and selected baseline routes/methods/Content-Length/version behavior. Every response has exactly one canonical fresh UTC Date; removing only Date reproduces the previously verified response bytes. Includes split-head reception, HEAD response policy and follow-up GET; excludes real 30-second socket timeouts, concurrency, queue overload, FD leak and full-stage acceptance.",
+  "source_before": {
+    "CMakeLists.txt": "e91cb75dc649ce2644af523a40167cc1bd3c2c7417f96f033adaa826f713813d",
+    "include/http_request.h": "2bdb3d4b5740f76d28cc3d822796116050e0dc6d0f032f9265a67c0d29918e44",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "8fa7ef57cc71fab00b2637acccc0cc00c9113e3259ba2000fce66cb86c1560a4",
+    "include/tcp_server.h": "38628d78c4d06019ad95a2f187bd47e02d8ba111452a71de0f08188d6f1a45bf",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "src/http_request.cpp": "36636ff0a484f8ed60bcbf956415dd128e9d97b274b28b43f5fb80f3701b3993",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/logger.cpp": "7ffe9072eaf4499e856362e906b46d24ca8ee835ede38f3dfbd4d92344ea1892",
+    "src/main.cpp": "4f70c01b136895610c12e7749511cfbd82b1c51d9607854e6b61c86ac4286d56",
+    "src/tcp_connection.cpp": "3db4241b66487279b15138a40f8522e0627feac72d2c63f3e86ce78b3b230890",
+    "src/tcp_server.cpp": "d21380a9e0af3680e01e78ecf3558d7f099eaf4a8bf1be6b5cdae8641929ee90",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332"
+  },
+  "source_after": {
+    "CMakeLists.txt": "e91cb75dc649ce2644af523a40167cc1bd3c2c7417f96f033adaa826f713813d",
+    "include/http_request.h": "2bdb3d4b5740f76d28cc3d822796116050e0dc6d0f032f9265a67c0d29918e44",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "8fa7ef57cc71fab00b2637acccc0cc00c9113e3259ba2000fce66cb86c1560a4",
+    "include/tcp_server.h": "38628d78c4d06019ad95a2f187bd47e02d8ba111452a71de0f08188d6f1a45bf",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "src/http_request.cpp": "36636ff0a484f8ed60bcbf956415dd128e9d97b274b28b43f5fb80f3701b3993",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/logger.cpp": "7ffe9072eaf4499e856362e906b46d24ca8ee835ede38f3dfbd4d92344ea1892",
+    "src/main.cpp": "4f70c01b136895610c12e7749511cfbd82b1c51d9607854e6b61c86ac4286d56",
+    "src/tcp_connection.cpp": "3db4241b66487279b15138a40f8522e0627feac72d2c63f3e86ce78b3b230890",
+    "src/tcp_server.cpp": "d21380a9e0af3680e01e78ecf3558d7f099eaf4a8bf1be6b5cdae8641929ee90",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332"
+  },
+  "source_unchanged": true,
+  "date_checks": {
+    "passed": 4,
+    "total": 4,
+    "compiler_diagnostics": "",
+    "cases": [
+      {
+        "name": "utc",
+        "TZ": "UTC",
+        "custom_non_english_global_locale": false,
+        "value": "Thu, 22 Oct 2026 15:01:41 GMT",
+        "passed": true
+      },
+      {
+        "name": "shanghai",
+        "TZ": "Asia/Shanghai",
+        "custom_non_english_global_locale": false,
+        "value": "Thu, 22 Oct 2026 15:01:41 GMT",
+        "passed": true
+      },
+      {
+        "name": "new-york",
+        "TZ": "America/New_York",
+        "custom_non_english_global_locale": false,
+        "value": "Thu, 22 Oct 2026 15:01:41 GMT",
+        "passed": true
+      },
+      {
+        "name": "non-english-global-locale",
+        "TZ": "Asia/Shanghai",
+        "custom_non_english_global_locale": true,
+        "value": "Thu, 22 Oct 2026 15:01:41 GMT",
+        "passed": true
+      }
+    ]
+  },
+  "test_artifacts_directory": "/tmp/cppserver-date-final-diy8w7s2",
+  "verification_date": "2026-10-22",
+  "previous_response_matches_except_date": 41,
+  "temporary_port": 59249,
+  "temporary_source_change": "Only the temporary tcp_server.cpp copy changes the port and corresponding address logs; original source is untouched.",
+  "passed": 41,
+  "executed": 41,
+  "total": 41,
+  "compiler_diagnostics": "",
+  "server_stderr": "",
+  "fatal": null,
+  "cases": [
+    {
+      "name": "ordinary-hello",
+      "status": 200,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "48656c6c6f2c48545450210a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3113918,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 200 OK",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "48656c6c6f2c48545450210a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "ordinary-health",
+      "status": 200,
+      "target": "/health",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f6865616c746820485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "4f4b0a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3142834,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 200 OK",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "3"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4f4b0a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "ordinary-query",
+      "status": 200,
+      "target": "/hello?name=Tom",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f3f6e616d653d546f6d20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "48656c6c6f2c48545450210a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.315169,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 200 OK",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "48656c6c6f2c48545450210a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "ordinary-missing",
+      "status": 404,
+      "target": "/missing",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f6d697373696e6720485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "4e6f7420466f756e640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3161812,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 404 Not Found",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "10"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420466f756e640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "ordinary-post",
+      "status": 405,
+      "target": "/hello",
+      "method": "POST",
+      "version": "HTTP/1.1",
+      "request_hex": "504f5354202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "4d6574686f64204e6f7420416c6c6f7765640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3170805,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 405 Method Not Allowed",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "allow": [
+            "GET"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "19"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4d6574686f64204e6f7420416c6c6f7765640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "ordinary-unknown-method",
+      "status": 501,
+      "target": "/hello",
+      "method": "FROB",
+      "version": "HTTP/1.1",
+      "request_hex": "46524f42202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3181515,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "ordinary-head",
+      "status": 405,
+      "target": "/hello",
+      "method": "HEAD",
+      "version": "HTTP/1.1",
+      "request_hex": "48454144202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.319271,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 405 Method Not Allowed",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "allow": [
+            "GET"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": ""
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "http10-without-host",
+      "status": 200,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.0",
+      "request_hex": "474554202f68656c6c6f20485454502f312e300d0a0d0a",
+      "expected_body_hex": "48656c6c6f2c48545450210a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3200827,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.0 200 OK",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "48656c6c6f2c48545450210a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "zero-content-length",
+      "status": 200,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a436f6e74656e742d4c656e6774683a20300d0a0d0a",
+      "expected_body_hex": "48656c6c6f2c48545450210a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.320964,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 200 OK",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "48656c6c6f2c48545450210a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "nonzero-content-length",
+      "status": 413,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a436f6e74656e742d4c656e6774683a20310d0a0d0a",
+      "expected_body_hex": "5265717565737420626f6479206973206e6f7420737570706f727465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3220065,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 413 Content Too Large",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "30"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "5265717565737420626f6479206973206e6f7420737570706f727465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "invalid-content-length",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a436f6e74656e742d4c656e6774683a206162630d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3231177,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "duplicate-content-length",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a436f6e74656e742d4c656e6774683a20300d0a436f6e74656e742d4c656e6774683a20300d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.324667,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-gzip-missing-chunked",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20677a69700d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "请求传输编码缺少chunked"
+      ],
+      "request_started": 1792681305.3258178,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-chunked-not-last",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65642c20677a69700d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "请求中的chunked必须位于编码列表末尾"
+      ],
+      "request_started": 1792681305.3267295,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-adjacent-duplicate",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65642c206368756e6b65640d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "请求中的chunked重复出现"
+      ],
+      "request_started": 1792681305.327567,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-duplicate-across-fields",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a5472616e736665722d456e636f64696e673a20677a69702c206368756e6b65640d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "请求中的chunked重复出现"
+      ],
+      "request_started": 1792681305.3286417,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-empty",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a200d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "传输列表没有有效名称"
+      ],
+      "request_started": 1792681305.3296325,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-comma-only",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a202c202c0d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3308358,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-unclosed-quote",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20782d64656d6f3b6e6f74653d22612c620d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3317063,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-missing-parameter-value",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20782d64656d6f3b6c6576656c3d2c6368756e6b65640d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3336227,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-forbidden-chunked-parameter",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65643b6c6576656c3d310d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.335002,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-forbidden-gzip-parameter",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20677a69703b6c6576656c3d312c6368756e6b65640d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3359683,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-invalid-name",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206261642f6e616d652c6368756e6b65640d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3370073,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-valid-chunked-not-implemented",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [
+        "当前服务器尚未实现传输编码请求正文的解码"
+      ],
+      "request_started": 1792681305.3379502,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-valid-gzip-chunked-not-implemented",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20677a69702c206368756e6b65640d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3389325,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-mixed-case",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a7452614e734665522d456e436f44694e673a204348554e4b45440d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3402183,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-valid-repeated-fields",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20677a69700d0a582d546573743a206162630d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3413298,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-valid-quoted-comma",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20782d64656d6f3b6e6f74653d22612c62223b6c6576656c3d312c6368756e6b65640d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3424292,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-valid-escaped-quote",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20782d64656d6f3b6e6f74653d22615c22622c63222c6368756e6b65640d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3435013,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-empty-first-field",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a200d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3444622,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-empty-list-members",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a202c2c4348554e4b45442c2c0d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.3455524,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-zero-chunk-body-not-decoded",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a300d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.346871,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-split-head",
+      "status": 501,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20782d64656d6f3b6e6f74653d22612c62222c6368756e6b65640d0a0d0a",
+      "expected_body_hex": "4e6f7420496d706c656d656e7465640a",
+      "split": true,
+      "logs": [],
+      "request_started": 1792681305.3477333,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "16"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4e6f7420496d706c656d656e7465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-and-cl-conflict",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a436f6e74656e742d4c656e6774683a20300d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "请求同时包含 Transfer-Encoding 和 Content-Length"
+      ],
+      "request_started": 1792681305.4997985,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "te-malformed-and-cl-conflict-priority",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20782d64656d6f3b6c6576656c3d0d0a436f6e74656e742d4c656e6774683a20300d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "请求同时包含 Transfer-Encoding 和 Content-Length"
+      ],
+      "request_started": 1792681305.501461,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "http10-te-rejected-first",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.0",
+      "request_hex": "474554202f68656c6c6f20485454502f312e300d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "HTTP/1.0 请求不能使用 Transfer-Encoding"
+      ],
+      "request_started": 1792681305.5032156,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.0 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "unsupported-major-version-priority",
+      "status": 505,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/2.0",
+      "request_hex": "474554202f68656c6c6f20485454502f322e300d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a",
+      "expected_body_hex": "4f6e6c7920485454502f312e7820697320737570706f727465640a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.504327,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 505 HTTP Version Not Supported",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "27"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "4f6e6c7920485454502f312e7820697320737570706f727465640a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "missing-host-priority",
+      "status": 400,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a",
+      "expected_body_hex": "42616420526571756573740a",
+      "split": false,
+      "logs": [
+        "host字段校验失败"
+      ],
+      "request_started": 1792681305.5055153,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "42616420526571756573740a"
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "head-valid-te-no-body",
+      "status": 501,
+      "target": "/hello",
+      "method": "HEAD",
+      "version": "HTTP/1.1",
+      "request_hex": "48454144202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a206368756e6b65640d0a0d0a",
+      "expected_body_hex": "",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.5066,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 501 Not Implemented",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": ""
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "head-invalid-te-no-body",
+      "status": 400,
+      "target": "/hello",
+      "method": "HEAD",
+      "version": "HTTP/1.1",
+      "request_hex": "48454144202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a5472616e736665722d456e636f64696e673a20677a69700d0a0d0a",
+      "expected_body_hex": "",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.5079749,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 400 Bad Request",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": ""
+      },
+      "matches_previous_response_except_date": true
+    },
+    {
+      "name": "ordinary-get-after-errors",
+      "status": 200,
+      "target": "/hello",
+      "method": "GET",
+      "version": "HTTP/1.1",
+      "request_hex": "474554202f68656c6c6f20485454502f312e310d0a486f73743a206c6f63616c686f73740d0a0d0a",
+      "expected_body_hex": "48656c6c6f2c48545450210a",
+      "split": false,
+      "logs": [],
+      "request_started": 1792681305.5093513,
+      "passed": true,
+      "response": {
+        "status_line": "HTTP/1.1 200 OK",
+        "headers": {
+          "date": [
+            "Thu, 22 Oct 2026 15:01:45 GMT"
+          ],
+          "content-type": [
+            "text/plain; charset=utf-8"
+          ],
+          "content-length": [
+            "12"
+          ],
+          "connection": [
+            "close"
+          ]
+        },
+        "body_hex": "48656c6c6f2c48545450210a"
+      },
+      "matches_previous_response_except_date": true
+    }
+  ],
+  "own_server_stopped": true,
+  "cmake_build": {
+    "configure": "cmake -S . -B build",
+    "build": "cmake --build build",
+    "passed": true
+  }
+}

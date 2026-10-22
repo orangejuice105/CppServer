@@ -1,5 +1,14 @@
 # 当前 HTTP 路径响应验证
 
+2026-10-22 当前源码通过 CMake 构建、4 项日期生成检查和 41 项临时端口 HTTP 检查。
+日期检查覆盖三种时区及自定义非英文全局 C++ 语言环境，验证日期固定为英文 UTC 格式且时间有效。
+HTTP 检查覆盖路径、方法、HEAD、版本、Content-Length、Transfer-Encoding、错误响应和分次发送；
+每个响应均校验唯一 Date 字段，移除该字段后与此前验证过的响应字节一致。
+编译开启未定义行为检测，无编译或运行时诊断。报告见
+[reports/http-transfer-date-2026-10-22.json](reports/http-transfer-date-2026-10-22.json)。
+本轮未重跑真实 30 秒收发超时、并发、队列满或描述符回收；不代表完整阶段验收。
+工具和原始输出保留在报告对应的本机临时目录，未加入仓库。
+
 构建并启动服务器后，按项目 [README](../README.md#http-手动验证) 中的 curl 命令，
 检查 `/hello`、`/health`、未知路径及带查询参数的目标。分别核对状态码、正文、
 Content-Length 和 Connection: close；未知路径请求后应仍能访问 `/health`。
