@@ -1021,3 +1021,37 @@ bool validateRequestTransferCodingOrder(const std::vector<std::string>& codings)
 
     return true;
 }
+
+bool isRequestTargetTooLong(const std::string& request,std::size_t maxTargetBytes,std::string& method){
+    //先找第一个空格（它将方法和目标分开）
+    std::size_t firstSpace = request.find(' ');
+    if(firstSpace == std::string::npos || firstSpace == 0){
+        return false;
+    }
+
+    //确认空格前的内容是否可以作为方法名
+    for(std::size_t i = 0;i < firstSpace;i++){
+        if(!isHttpTokenChar(request[i])){
+            return false;
+        }
+    }
+
+    //确定请求目标开始位置
+    std::size_t targetStart = firstSpace + 1;
+
+    //寻找当前能够确定的目标结束位置
+    std::size_t targetEnd = request.find_first_of(" \r\n",targetStart);
+
+    //没找到就算到数据末尾
+    if(targetEnd == std::string::npos){
+        targetEnd = request.size();
+    }
+
+    //判断长度，超限时输出方法名
+    if(targetEnd - targetStart <= maxTargetBytes){
+        return false;
+    }
+
+    method = request.substr(0,firstSpace);
+    return true;
+}

@@ -11,6 +11,9 @@
 #include "http_request.h"
 #include <vector>
 #include "http_response.h"
+#include "http_router.h"
+#include <chrono>
+#include <algorithm>
 
 //负责完整发送响应
 bool sendAll(int clientFd,const std::string& data){
@@ -51,6 +54,110 @@ bool sendAll(int clientFd,const std::string& data){
     }
 
     return true;
+}
+
+// 请求接收阶段，若请求行完整、未超限且解析成功，则尝试发送指定错误响应。
+// 按请求版本构造响应，并处理 HEAD 无正文；连接由 handleClient() 统一关闭。
+void sendRequestErrorResponse(int clientFd,const std::string& request,std::size_t maxHeaderBytes,int statusCode,const std::string& reasonPhrase){
+    //寻找第一个换行
+    std::size_t lineEnd = request.find("\r\n");
+
+    if(lineEnd == std::string::npos || lineEnd + 2 > maxHeaderBytes){
+        LOGGER_WARN("请求行尚未完整接收或长度超限");
+        return;
+    }
+
+    std::string requestLine = request.substr(0,lineEnd);
+    HttpRequest httpRequest;
+
+    if(!parseRequestLine(requestLine,httpRequest)){
+        LOGGER_WARN("请求行解析失败");
+        return;
+    }
+
+    //准备版本和HEAD标记再构造响应
+    std::string responseVersion = "HTTP/1.1";
+    if (httpRequest.version == "HTTP/1.0") {
+        responseVersion = "HTTP/1.0";
+    }
+    bool isHeadRequest = httpRequest.method == "HEAD";
+
+    std::string response = buildHttpResponse(responseVersion,statusCode,
+                            reasonPhrase,
+                            reasonPhrase + "\n",
+                            isHeadRequest);
+
+    //发送完整响应
+    if(sendAll(clientFd,response)){
+        LOGGER_INFO("HTTP错误响应发送完成,fd=" + std::to_string(clientFd) + ",状态码=" + std::to_string(statusCode));
+    }
+
+    return;
+}
+
+//先结束发送，再在时间和字节上限内清理剩余接收数据，最后关闭连接
+void closeClientConnection(int clientFd){
+    //先结束发送方向
+    //SHUT_WR: 结束这个连接的发送方向
+    int shutdownResult = shutdown(clientFd,SHUT_WR); //shutdown: 结束此连接的发送方向，仍可接收数据；最后仍需close释放描述符
+
+    if(shutdownResult == -1){
+        const int error = errno;
+        LOGGER_WARN("结束发送方向失败,fd=" + std::to_string(clientFd) + ",errno=" + std::to_string(error));
+        close(clientFd);
+        return;
+    }
+
+    //给清理阶段设置较短的接收超时
+    timeval drainTimeout{};
+    drainTimeout.tv_usec = 100000;
+    int drainTimeoutResult = setsockopt(clientFd,SOL_SOCKET,SO_RCVTIMEO,&drainTimeout,sizeof(drainTimeout));
+
+    if(drainTimeoutResult == -1){
+        const int error = errno;
+        LOGGER_WARN("设置清理接收超时失败,fd=" + std::to_string(clientFd) + ",errno=" + std::to_string(error));
+        close(clientFd);
+        return;
+    }
+
+    //准备清理缓冲区、字节上限和截止时间
+    char discardBuffer[1024]; //暂存清理过程中收到的数据
+    const std::size_t maxDrainBytes = 64*1024; //最多额外清理64KiB
+    std::size_t drainedBytes = 0; //已经清理的字节数
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1); //总截止时间
+
+    //清理循环
+    while(drainedBytes < maxDrainBytes && std::chrono::steady_clock::now() < deadline){
+        //计算本次最多能读取多少字节
+        std::size_t toRead = std::min(sizeof(discardBuffer),maxDrainBytes - drainedBytes);
+
+        //读取数据
+        ssize_t received = recv(clientFd,discardBuffer,toRead,0);
+        //收到数据时，累积清理量并继续
+        if (received > 0) {
+            drainedBytes += static_cast<std::size_t>(received);
+            continue;
+        }
+        //对方结束发送，已发来的数据也读完时停止清理
+        if (received == 0) {
+            break;
+        }
+        //接收失败时
+        const int error = errno;
+        //被信号中断就重新尝试
+        if(error == EINTR){
+            continue;
+        }
+        //清理接收等待超时直接结束清理
+        if(error == EAGAIN || error == EWOULDBLOCK){
+            break;
+        }
+        //其他错误记录后结束
+        LOGGER_WARN("清理客户端剩余数据失败,fd=" + std::to_string(clientFd)
+                    + ",errno=" + std::to_string(error));
+        break;
+    }
+    close(clientFd);
 }
 
 void handleClient(int clientFd){
@@ -105,6 +212,8 @@ void handleClient(int clientFd){
     //准备累积空间
     std::string request; //保存多次接收累积起来的字节
     const std::size_t maxHeaderBytes = 8*1024; //给请求头设置8192字节上限
+    const std::size_t maxTargetBytes = 4096; //请求目标允许的最大字节数
+    bool requestLineChecked = false; //是否已完成接收阶段的请求行检查
 
     while(true){
         //读取从客户端(clientFd)发来的数据并存在buffer里
@@ -123,19 +232,29 @@ void handleClient(int clientFd){
 
             if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
                 LOGGER_WARN("客户端接收超时,关闭连接,fd=" + std::to_string(clientFd));
+
+                //已收到数据时尝试发送 408；能否发送由辅助函数的请求行检查决定
+                if(!request.empty()){
+                    sendRequestErrorResponse(clientFd,request,maxHeaderBytes,408,"Request Timeout"); //408 表示服务器没有在愿意等待的时间内收到完整请求
+                }
             }
             else{
                 //std::error_code: 保存错误编号及其所属类别的对象
                 const std::error_code ec(error,std::generic_category()); //std::generic_category: 指定按通用类别解释
                 const std::string reason = ec.message(); //把编号转换成可阅读的文字说明
                 LOGGER_ERROR("接收失败,fd = " + std::to_string(clientFd)
-                            + ",error=" + std::to_string(error) + ",原因="  + reason);
+                            + ",errno=" + std::to_string(error) + ",原因="  + reason);
             }
             break;
         }
 
         if(received == 0){
             std::cout << "对方已结束发送" << '\n';
+
+            if(!request.empty()){
+                LOGGER_WARN("客户端结束发送时请求头仍不完整,fd=" + std::to_string(clientFd));
+                sendRequestErrorResponse(clientFd,request,maxHeaderBytes,400,"Bad Request");
+            }
             break;
         }
         if(received > 0){
@@ -144,12 +263,49 @@ void handleClient(int clientFd){
             //从buffer开始追加static_cast<std::size_t>(received)个字节
             request.append(buffer,static_cast<std::size_t>(received)); //static_cast: 类型转换
 
+            //检查接收中的请求行是否已经表明目标超长
+            if(!requestLineChecked){
+                std::size_t lineEnd = request.find("\r\n");
+                if(lineEnd == std::string::npos){
+                    std::string earlyMethod; //接收判断函数输出的方法名
+                    if(isRequestTargetTooLong(request,maxTargetBytes,earlyMethod)){
+                        LOGGER_WARN("请求目标长度超出上限,请求行尚未完整,fd=" + std::to_string(clientFd));
+                        std::string response = buildHttpResponse(
+                        "HTTP/1.1", 414, "URI Too Long", "URI Too Long\n",
+                        earlyMethod == "HEAD");
+
+                        if (sendAll(clientFd, response)) {
+                            LOGGER_INFO("HTTP错误响应发送完成,fd=" + std::to_string(clientFd) + ",状态码=414");
+                        }
+                        break;
+                    }
+                }
+
+                //检查完整请求行是否表明目标超长
+                if(lineEnd != std::string::npos && lineEnd + 2 <= maxHeaderBytes){
+                    requestLineChecked = true; //标记这条请求行已经检查过
+                    std::string earlyRequestLine = request.substr(0,lineEnd); //截取请求行
+                    HttpRequest requestLineInfo;
+                    bool lineParsed = parseRequestLine(earlyRequestLine,requestLineInfo); //解析
+
+                    //解析成功后再判断目标是否超长
+                    if(lineParsed && requestLineInfo.version[5] == '1' && requestLineInfo.target.size() > maxTargetBytes){
+                        LOGGER_WARN("请求目标长度超出上限,fd=" + std::to_string(clientFd));
+                        sendRequestErrorResponse(
+                            clientFd, request, maxHeaderBytes, 414, "URI Too Long");
+                        break;
+                    }
+                }
+            }
+
             //判断请求头是否收完整(HTTP/1.1 请求头以空行结束，通常表现为连续的 \r\n\r\n)
             std::size_t headerEnd = request.find("\r\n\r\n");
 
             if(headerEnd != std::string::npos){
                 if(headerEnd + 4 > maxHeaderBytes){
                     LOGGER_WARN("请求头长度超出上限");
+                    sendRequestErrorResponse(
+                        clientFd, request, maxHeaderBytes,431,"Request Header Fields Too Large");
                     break;
                 }
                 else{
@@ -202,17 +358,6 @@ void handleClient(int clientFd){
                         LOGGER_INFO("目标主机与端口=" + httpRequest.authority
                                     + ",路径与查询=" + httpRequest.pathAndQuery);
 
-                        //请求目标可能包含查询参数/hello?name=Tom ,所以要先找到?再截取
-                                              //└─路径─┘└查询参数┘
-                        std::size_t queryPos = httpRequest.pathAndQuery.find("?");
-                        std::string path = httpRequest.pathAndQuery.substr(0,queryPos);
-
-                        //检查请求方法，明确服务器允许什么操作
-                        //认识的方法返回true
-                        bool knownMethod =
-                                method == "GET" || method == "HEAD" || method == "POST" ||
-                                method == "PUT" || method == "DELETE" || method == "CONNECT" ||
-                                method == "OPTIONS" || method == "TRACE" || method == "PATCH";
 
                         //检查有没有Transfer-Encoding字段
                         const bool hasTransferEncoding = hasRequestHeader(httpRequest, "transfer-encoding");
@@ -290,34 +435,13 @@ void handleClient(int clientFd){
                             LOGGER_WARN("当前服务器不接受非零长度的请求正文");
                         }
 
-                        //对不认识的方法处理
-                        else if(!knownMethod){
-                            statusCode = 501; //501表示服务器不认识遇到的方法
-                            reasonPhrase = "Not Implemented";
-                            body = "Not Implemented\n";
+                        //前面的请求校验都通过了才进入方法和路径分支
+                        else{
+                            HttpRouteResult route = routeRequest(httpRequest);
+                            statusCode = route.statusCode;
+                            reasonPhrase = route.reasonPhrase;
+                            body = route.body;
                         }
-                        //再处理认识但不允许的方法
-                        else if(method != "GET"){
-                            statusCode = 405; //405表示该资源不允许这个方法
-                            reasonPhrase = "Method Not Allowed";
-                            body = "Method Not Allowed\n";
-                        }
-
-                        //处理不同路径分支
-                        else if(path == "/hello"){
-                            body = "Hello,HTTP!\n";
-                        }
-
-                        else if(path == "/health"){
-                            body = "OK\n";
-                        }
-
-                        else {
-                            statusCode = 404;
-                            reasonPhrase = "Not Found";
-                            body = "Not Found\n";
-                        }
-
                     }
 
                     //构造完整响应
@@ -340,11 +464,13 @@ void handleClient(int clientFd){
             else{
                 if(request.size() >= maxHeaderBytes){
                     LOGGER_WARN("累积数据达到上限");
+                    sendRequestErrorResponse(
+                        clientFd, request, maxHeaderBytes,431,"Request Header Fields Too Large");
                     break;
                 }
             }
         }
     }
+    closeClientConnection(clientFd);
     LOGGER_INFO("结束处理客户端,fd=" + std::to_string(clientFd));
-    close(clientFd);
 }

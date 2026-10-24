@@ -91,3 +91,6 @@ bool parseTransferEncodingHeaders(const HttpRequest& request,std::vector<std::st
 
 //检查已解析的请求编码列表，chunked只能在末尾出现且只能出现一次
 bool validateRequestTransferCodingOrder(const std::vector<std::string>& codings);
+
+//检查已接收数据中的请求目标是否超限；返回true时，method保存方法名
+bool isRequestTargetTooLong(const std::string& request,std::size_t maxTargetBytes,std::string& method);

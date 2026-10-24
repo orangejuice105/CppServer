@@ -1,10 +1,13 @@
-// 仅供测试，通过 LD_PRELOAD 注入返回值，不参与服务器的正常构建。
+// 仅供测试：通过 LD_PRELOAD 注入返回值、限制发送大小或映射临时端口。
+// 不参与服务器的正常构建；未设置相应环境变量时调用原始系统接口。
 #include <atomic>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -26,6 +29,28 @@ void trace(const char* message) {
     }
     errno = saved;
 }
+}
+
+// HTTP 验收专用：仅在测试进程中把回环地址的 8080 映射到临时端口。
+// 不改动生产源码，也不抢占用户正在运行的 8080 服务。
+extern "C" int bind(int fd, const sockaddr* address, socklen_t length) {
+    using Function = int (*)(int, const sockaddr*, socklen_t);
+    static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "bind"));
+    const char* setting = std::getenv("CPP_HTTP_TEST_PORT");
+    if (setting && address && length >= sizeof(sockaddr_in) && address->sa_family == AF_INET) {
+        sockaddr_in redirected{};
+        std::memcpy(&redirected, address, sizeof(redirected));
+        char* end = nullptr;
+        const long port = std::strtol(setting, &end, 10);
+        if (end && *end == '\0' && port > 0 && port <= 65535 &&
+            redirected.sin_port == htons(8080) &&
+            redirected.sin_addr.s_addr == htonl(INADDR_LOOPBACK)) {
+            redirected.sin_port = htons(static_cast<unsigned short>(port));
+            trace("BIND_REDIRECT\n");
+            return real(fd, reinterpret_cast<const sockaddr*>(&redirected), sizeof(redirected));
+        }
+    }
+    return real(fd, address, length);
 }
 
 extern "C" int accept(int fd, sockaddr* address, socklen_t* length) {

@@ -1,0 +1,184 @@
+{
+  "verification_date": "2026-10-24",
+  "scope": "Current repository source: direct isRequestTargetTooLong checks for missing/invalid method, empty/partial targets, 4096/4097-byte boundaries, HEAD method output, space/CR/LF target delimiters, query bytes, long headers, and preservation of the output argument on false. The helper is not integrated into the receive loop; no HTTP network or timeout tests in this review.",
+  "test_artifacts_directory": "/tmp/cppserver-target-prefix-check-ra5_9pd6",
+  "cmake_build": {
+    "passed": true,
+    "command": "cmake --build build -j 2",
+    "diagnostics": ""
+  },
+  "source_before": {
+    "CMakeLists.txt": "35c3e325db75af466aa05ec1d79c4edbdb602af41de208b7e907498795e00129",
+    "include/http_request.h": "c309682160e20b38419a439395265e2b83cec9b68025a5ad4a800778714a1650",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/http_router.h": "496c22f5c890d69576ff5d942d8cab157890cef88c071217ca3c0359beb2d9a5",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "8fa7ef57cc71fab00b2637acccc0cc00c9113e3259ba2000fce66cb86c1560a4",
+    "include/tcp_server.h": "38628d78c4d06019ad95a2f187bd47e02d8ba111452a71de0f08188d6f1a45bf",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "src/http_request.cpp": "09d34beb7a1a9009d85d4da946319d60f822929b98f54a8eec6b33fa75beb9a3",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/http_router.cpp": "14b0f68531f23edce2c351f6cebe3960ec7106e94dc6db99a91401404117ac79",
+    "src/logger.cpp": "7ffe9072eaf4499e856362e906b46d24ca8ee835ede38f3dfbd4d92344ea1892",
+    "src/main.cpp": "4f70c01b136895610c12e7749511cfbd82b1c51d9607854e6b61c86ac4286d56",
+    "src/tcp_connection.cpp": "1a3626e0a75c3e075543b55437d66beadc702388961ad3df219426e8a4cf3f3e",
+    "src/tcp_server.cpp": "d21380a9e0af3680e01e78ecf3558d7f099eaf4a8bf1be6b5cdae8641929ee90",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332"
+  },
+  "source_after": {
+    "CMakeLists.txt": "35c3e325db75af466aa05ec1d79c4edbdb602af41de208b7e907498795e00129",
+    "include/http_request.h": "c309682160e20b38419a439395265e2b83cec9b68025a5ad4a800778714a1650",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/http_router.h": "496c22f5c890d69576ff5d942d8cab157890cef88c071217ca3c0359beb2d9a5",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "8fa7ef57cc71fab00b2637acccc0cc00c9113e3259ba2000fce66cb86c1560a4",
+    "include/tcp_server.h": "38628d78c4d06019ad95a2f187bd47e02d8ba111452a71de0f08188d6f1a45bf",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "src/http_request.cpp": "09d34beb7a1a9009d85d4da946319d60f822929b98f54a8eec6b33fa75beb9a3",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/http_router.cpp": "14b0f68531f23edce2c351f6cebe3960ec7106e94dc6db99a91401404117ac79",
+    "src/logger.cpp": "7ffe9072eaf4499e856362e906b46d24ca8ee835ede38f3dfbd4d92344ea1892",
+    "src/main.cpp": "4f70c01b136895610c12e7749511cfbd82b1c51d9607854e6b61c86ac4286d56",
+    "src/tcp_connection.cpp": "1a3626e0a75c3e075543b55437d66beadc702388961ad3df219426e8a4cf3f3e",
+    "src/tcp_server.cpp": "d21380a9e0af3680e01e78ecf3558d7f099eaf4a8bf1be6b5cdae8641929ee90",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332"
+  },
+  "test_program_sha256": "1f6816b7769aca6d0fb4bedafae1636e35ccc824e2c5974a16403514b798575e",
+  "compiler_diagnostics": "",
+  "runtime_stderr": "",
+  "run_exit_code": 0,
+  "cases": [
+    {
+      "name": "empty-input",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "method-only",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "empty-method",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "empty-target-prefix",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "short-incomplete-target",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "target-4096-incomplete",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "target-4097-incomplete",
+      "passed": true,
+      "expected": true,
+      "actual": true,
+      "expected_method": "GET",
+      "actual_method": "GET"
+    },
+    {
+      "name": "head-target-4097-incomplete",
+      "passed": true,
+      "expected": true,
+      "actual": true,
+      "expected_method": "HEAD",
+      "actual_method": "HEAD"
+    },
+    {
+      "name": "target-4096-complete-line",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "long-header-is-not-target",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "invalid-method-token",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "first-space-in-header",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "space-separates-version",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "target-4096-ends-lone-cr",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "query-4096-partial-version",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    },
+    {
+      "name": "zero-limit-empty-target",
+      "passed": true,
+      "expected": false,
+      "actual": false,
+      "expected_method": "unchanged",
+      "actual_method": "unchanged"
+    }
+  ],
+  "passed": 16,
+  "executed": 16,
+  "total": 16,
+  "source_unchanged": true
+}
