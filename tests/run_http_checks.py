@@ -19,12 +19,14 @@ import socket
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 import traceback
 
 PROJECT = Path(__file__).resolve().parents[1]
-GROUPS = ('regression', 'helpers', 'lifecycle', 'concurrency', 'faults',
-          'receive-timeout', 'send-timeout')
+GROUPS = ('regression', 'helpers', 'lifecycle', 'concurrency', 'faults', 'oversize',
+          'receive-timeout', 'send-timeout', 'request-deadline')
+TIMEOUT_GROUPS = ('receive-timeout', 'send-timeout', 'request-deadline')
 PREFIX = b'GET /hello HTTP/1.1\r\nHost: localhost\r\nX-Hold: '
 SUFFIX = b'released\r\n\r\n'
 
@@ -86,8 +88,11 @@ def parse_response(data, started):
 
 
 def expected_response(status=200, body=b'OK\n', version='HTTP/1.1', head=False):
-    reason = {200: 'OK', 400: 'Bad Request', 408: 'Request Timeout'}[status]
+    reason = {200: 'OK', 400: 'Bad Request', 404: 'Not Found', 405: 'Method Not Allowed',
+              408: 'Request Timeout', 414: 'URI Too Long'}[status]
     headers = {'content-type': ['text/plain; charset=utf-8'], 'connection': ['close']}
+    if status == 405:
+        headers['allow'] = ['GET']
     if not head:
         headers['content-length'] = [str(len(body))]
     return dict(status_line=f'{version} {status} {reason}', headers=headers,
@@ -217,6 +222,7 @@ class Suite:
         connection = (PROJECT/'src/tcp_connection.cpp').read_text()
         require(re.search(r'ThreadPool\s+pool\s*\(\s*4\s*,\s*64\s*\)', main), 'Expected pool(4,64)')
         require(re.search(r'timeout\.tv_sec\s*=\s*30\s*;', connection), 'Expected 30-second timeout')
+        require(re.search(r'requestDeadline\s*=.*seconds\(60\)', connection), 'Expected fixed 60-second request-head deadline')
         self.command(['cmake', '-S', str(PROJECT), '-B', str(self.build),
                       '-DCPPSERVER_BUILD_TEST_TOOLS=ON',
                       '-DCMAKE_CXX_FLAGS=-D_GLIBCXX_ASSERTIONS -fsanitize=undefined -fno-sanitize-recover=all'], 'configure')
@@ -418,6 +424,119 @@ class Suite:
                         partial_send_calls=events.count('PARTIAL_SEND\n'),
                         scope='Injected syscall returns, not real signal delivery; response bytes checked without omissions/duplication')
 
+    def oversize(self):
+        results = []
+        with Server(self, 'oversize') as server:
+            server.exchange(); server.idle()
+            baseline = server.fds()
+
+            def probe(method, target_bytes, fragmented=False, read_delay=0):
+                raw = (method.encode()+b' /'+b'a'*(target_bytes-1)
+                       + b' HTTP/1.1\r\nHost: localhost\r\n\r\n')
+                if target_bytes > 4096:
+                    expected = expected_response(414, b'URI Too Long\n', head=method == 'HEAD')
+                elif method == 'HEAD':
+                    expected = expected_response(405, b'Method Not Allowed\n', head=True)
+                else:
+                    expected = expected_response(404, b'Not Found\n')
+                before_ends = server.count('结束处理客户端,fd=')
+                before_log = len(server.log())
+                started = time.time(); began = time.monotonic()
+                client = server.connect(timeout=4)
+                sent = {'bytes': 0, 'calls': [], 'error_errno': None, 'finished_seconds': None}
+                cut = len(method)+1+4096
+                pieces = [raw[:cut], raw[cut:]] if fragmented else [raw]
+
+                def write():
+                    try:
+                        for i, piece in enumerate(pieces):
+                            if i:
+                                time.sleep(.05)
+                            offset = 0
+                            while offset < len(piece):
+                                size = client.send(piece[offset:])
+                                require(size > 0, 'Client send made no progress')
+                                offset += size
+                                sent['bytes'] += size
+                                sent['calls'].append(dict(bytes=size, seconds=time.monotonic()-began))
+                    except OSError as exc:
+                        sent['error_errno'] = exc.errno
+                    finally:
+                        sent['finished_seconds'] = time.monotonic()-began
+
+                writer = threading.Thread(target=write)
+                writer.start()
+                data = bytearray(); first_response = None; termination = None; read_error = None
+                try:
+                    if read_delay:
+                        time.sleep(read_delay)
+                    while True:
+                        try:
+                            chunk = client.recv(8192)
+                        except ConnectionResetError as exc:
+                            termination = 'reset'; read_error = exc.errno; break
+                        except socket.timeout:
+                            termination = 'timeout'; break
+                        if not chunk:
+                            termination = 'eof'; break
+                        if first_response is None:
+                            first_response = time.monotonic()-began
+                        data.extend(chunk)
+                    writer.join(timeout=5)
+                    require(not writer.is_alive(), 'Client writer did not finish')
+                    server.wait_log('结束处理客户端,fd=', before_ends+1)
+                    # FIN and RST are transport observations, separate from HTTP framing.
+                    time.sleep(.02)
+                    socket_error = client.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+                    actual = None; parse_error = None
+                    try:
+                        actual = parse_response(bytes(data), started)
+                    except Exception as exc:
+                        parse_error = str(exc)
+                    complete = actual == expected
+                    result = dict(method=method, target_bytes=target_bytes, request_bytes=len(raw),
+                                  sending='fragmented-at-4096' if fragmented else 'single-burst',
+                                  read_delay_seconds=read_delay, client_send=sent,
+                                  first_response_seconds=first_response, elapsed_seconds=time.monotonic()-began,
+                                  received_bytes=len(data), http_complete=complete, response=actual,
+                                  parse_error=parse_error, read_termination=termination,
+                                  read_error_errno=read_error, socket_error_errno=socket_error,
+                                  rst_observed=(termination == 'reset' or sent['error_errno'] == errno.ECONNRESET
+                                                or socket_error == errno.ECONNRESET),
+                                  cleanup_log=[line for line in server.log()[before_log:].splitlines()
+                                               if '连接清理结束' in line])
+                    results.append(result)
+                    (self.root/'oversize-observations.json').write_text(json.dumps(results, ensure_ascii=False, indent=2)+'\n')
+                    index = len(results)-1
+                    (server.directory/f'{index:02d}.request').write_bytes(raw)
+                    (server.directory/f'{index:02d}.response').write_bytes(data)
+                    require(complete, 'Incomplete/wrong HTTP response: '+repr(result))
+                    require(termination in ('eof', 'reset'), 'No bounded connection termination')
+                    if target_bytes < 65536:
+                        require(not result['rst_observed'], 'Unexpected reset within cleanup budget')
+                    else:
+                        require(any('达到64KiB上限' in line for line in result['cleanup_log']),
+                                'Large buffered input did not exercise the 64 KiB cleanup budget')
+                    server.idle(baseline)
+                    require(result['elapsed_seconds'] < 5, 'Oversize input held worker too long')
+                    return result
+                finally:
+                    client.close()
+                    writer.join(timeout=5)
+
+            for method in ('GET', 'HEAD'):
+                for length in (4096, 4097, 8193, 16384):
+                    burst = probe(method, length)
+                    split = probe(method, length, fragmented=True)
+                    require(burst['response'] == split['response'], 'Sending fragments changed rejection behavior')
+                for delay in (0, .2):
+                    probe(method, 1024*1024, read_delay=delay)
+            server.exchange(); server.idle(baseline)
+        return dict(cases=results, total_cases=len(results), baseline_fds=baseline,
+                    complete_responses=sum(c['http_complete'] for c in results),
+                    observed_resets=sum(c['rst_observed'] for c in results),
+                    policy='HTTP completeness and TCP EOF/reset are recorded separately. Moderate bounded inputs require EOF/no reset; 1 MiB hostile oversupply permits reset only after a complete validated response, bounded cleanup and successful resource/service recovery. No claim that every client can always read a response after arbitrary oversupply.')
+
     def receive_timeout(self):
         examples = [
             ('empty', b'', None),
@@ -466,6 +585,64 @@ class Suite:
         return dict(seconds=float(row[2]), prefilled_bytes=int(row[3]), socket_timeout_seconds=30,
                     scope='Calls the actual production sendAll on a real AF_UNIX SOCK_STREAM socketpair whose kernel send buffer is full. Peer never reads. Actual blocking timeout; no injected EAGAIN and no enlarged HTTP route. This directly tests sendAll, not a large-response HTTP endpoint.')
 
+    def request_deadline(self):
+        examples = [
+            ('get-trickle', PREFIX, expected_response(408, b'Request Timeout\n'), False),
+            ('head-trickle', b'HEAD /hello HTTP/1.1\r\nHost: localhost\r\nX-Hold: ',
+             expected_response(408, b'Request Timeout\n', head=True), False),
+            ('http10-trickle', b'GET /hello HTTP/1.0\r\nX-Hold: ',
+             expected_response(408, b'Request Timeout\n', version='HTTP/1.0'), False),
+            ('complete-at-50-seconds', PREFIX, expected_response(body=b'Hello,HTTP!\n'), True),
+        ]
+        with Server(self, 'request-deadline') as server:
+            baseline = server.fds()
+            clients = []
+            for i, (name, prefix, wanted, finish) in enumerate(examples):
+                client = server.connect(timeout=3)
+                began = time.monotonic(); started = time.time()
+                client.sendall(prefix)
+                server.wait_log('开始处理客户端,fd=', i+1)
+                clients.append((client, name, wanted, finish, began, started))
+
+            def finish_one(item):
+                client, name, wanted, finish, began, started = item
+                plan = [(20, b'x'), (40, b'x')]
+                if finish:
+                    plan.append((50, SUFFIX))
+                events = []; data = bytearray()
+                while True:
+                    elapsed = time.monotonic()-began
+                    require(elapsed < 68, 'Request outlived its 60-second deadline')
+                    if plan and elapsed >= plan[0][0]:
+                        _, payload = plan.pop(0)
+                        client.sendall(payload)
+                        events.append(dict(seconds=time.monotonic()-began, bytes=len(payload)))
+                    wait = min(1, max(.001, plan[0][0]-(time.monotonic()-began))) if plan else 1
+                    if select.select([client], [], [], wait)[0]:
+                        chunk = client.recv(8192)
+                        if not chunk:
+                            break
+                        data.extend(chunk)
+                elapsed = time.monotonic()-began
+                client.close()
+                actual = parse_response(bytes(data), started)
+                require(actual == wanted, name+': '+repr(actual))
+                require((49 <= elapsed < 57) if finish else (59 <= elapsed < 66),
+                        name+': wrong deadline timing '+str(elapsed))
+                require(len(events) == (3 if finish else 2), 'Missing scheduled fragments')
+                return dict(name=name, seconds=elapsed, sent_fragments=events, response=actual)
+
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                results = list(executor.map(finish_one, clients))
+            server.wait_log('请求头接收总时限已到', 3)
+            server.idle(baseline)
+            require(server.count('客户端接收超时') == 0,
+                    'Trickle must avoid single-call timeout and hit the fixed total deadline')
+            server.exchange(); server.idle(baseline)
+        return dict(request_head_deadline_seconds=60, single_receive_timeout_seconds=30,
+                    actual_clock=True, cases=results, recovery=True,
+                    scope='Fixed deadline from worker entry, not connection acceptance/queue entry. Header receive only; response sending and connection cleanup retain separate bounds. No shortened test configuration.')
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -475,7 +652,7 @@ def main():
     args = parser.parse_args()
     groups = list(dict.fromkeys(args.only or GROUPS))
     if args.skip_timeouts:
-        groups = [g for g in groups if g not in ('receive-timeout', 'send-timeout')]
+        groups = [g for g in groups if g not in TIMEOUT_GROUPS]
     if not groups:
         parser.error('No groups selected')
     root = Path(tempfile.mkdtemp(prefix='cppserver-http-checks-'))
@@ -483,7 +660,8 @@ def main():
     report = dict(started_at=datetime.now(timezone.utc).isoformat(), artifacts=str(root),
                   source_before=source_hashes(), selected_groups=groups, results=[], fatal=None,
                   production_configuration={'worker_threads': 4, 'queue_capacity': 64,
-                                            'receive_timeout_seconds': 30, 'send_timeout_seconds': 30},
+                                            'receive_timeout_seconds': 30, 'send_timeout_seconds': 30,
+                                            'request_head_deadline_seconds': 60},
                   isolation='CMake builds unmodified production sources in the artifact directory. LD_PRELOAD bind mapping redirects only 127.0.0.1:8080 in test child processes to temporary loopback ports. Normal timeout values unchanged. Only processes started by this suite are terminated.')
     def run_group(group):
         print(f'RUN {group}', flush=True)
@@ -505,10 +683,10 @@ def main():
         report['cmake_build'] = 'fresh build passed; assertions and undefined-behavior sanitizer enabled'
         report['binary_sha256'] = hashlib.sha256(suite.binary.read_bytes()).hexdigest()
         for group in groups:
-            if group not in ('receive-timeout', 'send-timeout'):
+            if group not in TIMEOUT_GROUPS:
                 run_group(group)
-        timeouts = [g for g in groups if g in ('receive-timeout', 'send-timeout')]
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        timeouts = [g for g in groups if g in TIMEOUT_GROUPS]
+        with ThreadPoolExecutor(max_workers=3) as executor:
             for completed in as_completed([executor.submit(run_group, g) for g in timeouts]):
                 completed.result()
     except Exception:

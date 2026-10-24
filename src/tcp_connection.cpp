@@ -125,6 +125,7 @@ void closeClientConnection(int clientFd){
     const std::size_t maxDrainBytes = 64*1024; //最多额外清理64KiB
     std::size_t drainedBytes = 0; //已经清理的字节数
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1); //总截止时间
+    const char* drainReason = "预算已耗尽";
 
     //清理循环
     while(drainedBytes < maxDrainBytes && std::chrono::steady_clock::now() < deadline){
@@ -140,6 +141,7 @@ void closeClientConnection(int clientFd){
         }
         //对方结束发送，已发来的数据也读完时停止清理
         if (received == 0) {
+            drainReason = "对方结束发送";
             break;
         }
         //接收失败时
@@ -150,17 +152,30 @@ void closeClientConnection(int clientFd){
         }
         //清理接收等待超时直接结束清理
         if(error == EAGAIN || error == EWOULDBLOCK){
+            drainReason = "清理等待超时";
             break;
         }
         //其他错误记录后结束
         LOGGER_WARN("清理客户端剩余数据失败,fd=" + std::to_string(clientFd)
                     + ",errno=" + std::to_string(error));
+        drainReason = "接收错误";
         break;
     }
+    if(drainedBytes >= maxDrainBytes){
+        drainReason = "达到64KiB上限";
+    }
+    else if(std::chrono::steady_clock::now() >= deadline){
+        drainReason = "达到1秒上限";
+    }
+    LOGGER_INFO("连接清理结束,fd=" + std::to_string(clientFd)
+                + ",已清理字节=" + std::to_string(drainedBytes)
+                + ",原因=" + drainReason);
     close(clientFd);
 }
 
 void handleClient(int clientFd){
+    //固定的接收阶段截止时间；每次收到数据都不重新计时，不包含线程池排队时间。
+    const auto requestDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
     //记录开始处理
     LOGGER_INFO("开始处理客户端,fd=" + std::to_string(clientFd));
 
@@ -215,15 +230,53 @@ void handleClient(int clientFd){
     const std::size_t maxTargetBytes = 4096; //请求目标允许的最大字节数
     bool requestLineChecked = false; //是否已完成接收阶段的请求行检查
 
+    auto finishRequestDeadline = [&]{
+        LOGGER_WARN("请求头接收总时限已到,fd=" + std::to_string(clientFd)
+                    + ",已接收字节=" + std::to_string(request.size()));
+        if(!request.empty()){
+            sendRequestErrorResponse(clientFd,request,maxHeaderBytes,408,"Request Timeout");
+        }
+    };
+
     while(true){
+        //单次 recv 最多等待30秒，同时不能越过固定的60秒总截止时间。
+        //不足1微秒时直接结束，避免给 SO_RCVTIMEO 传入0而变成无限等待。
+        const auto remaining = std::chrono::duration_cast<std::chrono::microseconds>(
+            requestDeadline - std::chrono::steady_clock::now());
+        if(remaining <= std::chrono::microseconds::zero()){
+            finishRequestDeadline();
+            break;
+        }
+        const auto wait = std::min(remaining,
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::seconds(30)));
+        timeval receiveWait{};
+        receiveWait.tv_sec = static_cast<decltype(receiveWait.tv_sec)>(wait.count() / 1000000);
+        receiveWait.tv_usec = static_cast<decltype(receiveWait.tv_usec)>(wait.count() % 1000000);
+        if(setsockopt(clientFd,SOL_SOCKET,SO_RCVTIMEO,&receiveWait,sizeof(receiveWait)) == -1){
+            const int error = errno;
+            LOGGER_ERROR("更新接收等待时间失败,fd=" + std::to_string(clientFd)
+                         + ",errno=" + std::to_string(error));
+            break;
+        }
+
         //读取从客户端(clientFd)发来的数据并存在buffer里
         //ssize_t: 系统接口使用的有符号整数类型
         //recv(): 接收返回收到的字节数，等于0时说明对方已正常结束发送，且待接收数据已读完，等于-1时说明接收失败
         ssize_t received = recv(clientFd,buffer,sizeof(buffer),0); //sizeof(buffer): 最多允许写入的字节数
                                                                     //0: 不启用额外的接受选项
+        const int receiveError = received < 0 ? errno : 0;
+        if(received > 0){
+            //buffer只暂存本次收到的字节，request保存此前累积的内容。
+            request.append(buffer,static_cast<std::size_t>(received));
+        }
+        //包括持续收到数据、EINTR重试的情况；到期后不再接受一个迟到的完整请求。
+        if(std::chrono::steady_clock::now() >= requestDeadline){
+            finishRequestDeadline();
+            break;
+        }
 
         if(received == -1){
-            const int error = errno; //保存错误编号
+            const int error = receiveError; //使用调用后立即保存的错误编号
 
             //当系统调用被信号打断时，重新尝试
             if(error == EINTR){
@@ -258,11 +311,6 @@ void handleClient(int clientFd){
             break;
         }
         if(received > 0){
-            //累积数据
-            //append: 把新内容追加到字符串末尾，保留此前内容
-            //从buffer开始追加static_cast<std::size_t>(received)个字节
-            request.append(buffer,static_cast<std::size_t>(received)); //static_cast: 类型转换
-
             //检查接收中的请求行是否已经表明目标超长
             if(!requestLineChecked){
                 std::size_t lineEnd = request.find("\r\n");
