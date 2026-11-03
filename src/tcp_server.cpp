@@ -10,6 +10,37 @@
 #include <system_error>
 #include <string>
 #include "tcp_connection.h"
+#include <sys/epoll.h>
+#include <fcntl.h>
+#include <unordered_map>
+
+//保留原有文件状态标志并开启非阻塞；失败时记录日志
+bool setNonblocking(int fd){
+    //读取当前文件状态标志
+    int flags = fcntl(fd,F_GETFL);
+
+    if(flags == -1){
+        const int error = errno;
+        const std::error_code ec(error,std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("读取文件状态标志失败,fd=" + std::to_string(fd) + ",errno=" + std::to_string(error) + ",原因=" + reason);
+        return false;
+    }
+
+    //开启非阻塞
+    int newFlags = flags | O_NONBLOCK; //保留原有标志并把非阻塞对应的位设为开启
+    int setResult = fcntl(fd,F_SETFL,newFlags); //F_SETFL表示把新的状态标志写回
+
+    if(setResult == -1){
+        const int error = errno;
+        const std::error_code ec(error,std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("设置非阻塞失败,fd=" + std::to_string(fd) + ",errno=" + std::to_string(error) + ",原因=" + reason);
+        return false;
+    }
+
+    return true;
+}
 
 int runTcpServer(ThreadPool& pool){
     //socket: Linux提供的系统调用接口，成功返回非负整数，失败返回-1
@@ -112,53 +143,152 @@ int runTcpServer(ThreadPool& pool){
         return 1;
     }
 
+    //调用非阻塞设置函数
+    if(!setNonblocking(listenFd)){
+        close(listenFd);
+        return 1;
+    }
+
+    //创建epoll、登记监听socket
+    int epollFd = epoll_create1(0); //0表示不启用额外选项
+
+    if(epollFd == -1){
+        const int error = errno;
+        const std::error_code ec(error,std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("创建epoll失败,errno=" + std::to_string(error) + ",原因=" + reason);
+        close(listenFd);
+        return 1;
+    }
+
+    //epoll登记用结构体
+    epoll_event listenEvent{};
+    listenEvent.events = EPOLLIN; //表示关心这个socket的可读事件
+    listenEvent.data.fd = listenFd; //将来报告事件时把填写的listenFd一起带回来，不负责登记socket
+
+    //调用epoll_ctl完成登记
+    //把 listenFd 加入 epollFd 管理的关注列表，关注它的可读事件，并保存我们提供的附带信息
+    int addResult = epoll_ctl(epollFd,EPOLL_CTL_ADD,listenFd,&listenEvent);
+
+    if(addResult == -1){
+        const int error = errno;
+        const std::error_code ec(error,std::generic_category());
+        const std::string reason = ec.message();
+        LOGGER_ERROR("登记监听socket到epoll失败,监听fd=" + std::to_string(listenFd)
+                    + ",epollFd=" + std::to_string(epollFd)
+                    + ",errno=" + std::to_string(error) + ",原因=" + reason);
+        close(epollFd);
+        close(listenFd);
+        return 1;
+    }
+
     std::cout << "开始监听,等待客户端连接" << std::endl;
 
     LOGGER_INFO("服务器开始监听 127.0.0.1:8080");
 
+    //创建数组保存epoll_wait()返回的事件
+    const int maxEvents = 16; //设置该次调用最多取回16条就绪记录
+    const int maxAcceptPerEvent = 32; //处理一次监听事件时，最多接收的连接个数
+    epoll_event readyEvents[maxEvents]{};
+
+    //按fd保存连接对象的容器,使收发数据和进度能跨越多次事件处理保留
+    std::unordered_map<int,TcpConnection>connections;
+
     //主线程持续接收连接，将客户端收发任务交给线程池
     while(true){
-        //存放客户端地址的空间
-        sockaddr_in clientAddr{};
-        //socklen_t: socket API专门用于表示地址长度的整数类型
-        socklen_t clientAddrLen = sizeof(clientAddr); //clientAddr: 保存连接进来的客户端的IP和端口
+        //等待事件,并记录有效事件个数
+        int readyCount = epoll_wait(epollFd,readyEvents,maxEvents,-1); //-1是等待时间参数
 
-        //从listenFd接收一个客户端连接，把客户端地址写进clientAddr，用于通信的编号返回给clientFd
-        int clientFd = accept( //一次accept只能取出一个客户端连接
-            listenFd,
-            reinterpret_cast<sockaddr*>(&clientAddr), //不用const因为accept要修改这块内存
-            &clientAddrLen //地址长度变量的位置：操作系统读取提供的空间大小并写回地址的实际长度
-        );
-
-        if(clientFd == -1){
+        if(readyCount == -1){
             const int error = errno;
-
+            const std::error_code ec(error, std::generic_category());
+            const std::string reason = ec.message();
             if(error == EINTR){
                 continue;
             }
 
-            const std::error_code ec(error, std::generic_category());
-            const std::string reason = ec.message();
-            LOGGER_ERROR("接收客户端连接失败,监听fd=" + std::to_string(listenFd)
-                         + ",errno=" + std::to_string(error) + ",原因=" + reason);
+            LOGGER_ERROR("等待epoll事件失败,fd=" + std::to_string(epollFd) + ",errno=" + std::to_string(error) + ",原因=" + reason);
             close(listenFd);
+            close(epollFd);
             return 1;
         }
+        for(int i = 0;i < readyCount;i++){
+            //取出这次事件附带的描述符
+            int readyFd = readyEvents[i].data.fd;
+            if(readyFd != listenFd){
+                continue;
+            }
 
-        LOGGER_INFO("接收客户端连接,fd=" + std::to_string(clientFd));
+            //检查错误或挂断
+            if(readyEvents[i].events & (EPOLLERR | EPOLLHUP)){
+                LOGGER_ERROR("监听socket出现错误或挂断");
+                close(epollFd);
+                close(listenFd);
+                return 1;
+            }
 
-        //保存函数handle和参数clientFd，交给线程池安排执行
-        try{
-            pool.enqueue(handleClient,clientFd);
-        }
-        catch(const std::exception& e){
-            LOGGER_ERROR("提交连接任务失败,关闭连接,fd=" + std::to_string(clientFd)
-                         + "，原因=" + e.what());
-            close(clientFd);
+            //检查是否包含可读事件
+            if(!(readyEvents[i].events & EPOLLIN)){ //检查事件标志中有没有开启EPOLLIN对应的位
+                continue;
+            }
+
+            //本次监听事件中，当已经成功接收的连接个数小于上限时，持续接收
+            int acceptedCount = 0;
+            while(acceptedCount < maxAcceptPerEvent){
+                //存放客户端地址的空间
+                sockaddr_in clientAddr{};
+                //socklen_t: socket API专门用于表示地址长度的整数类型
+                socklen_t clientAddrLen = sizeof(clientAddr); //clientAddr: 保存连接进来的客户端的IP和端口
+
+                //从listenFd接收一个客户端连接，把客户端地址写进clientAddr，用于通信的编号返回给clientFd
+                int clientFd = accept( //一次accept只能取出一个客户端连接
+                    listenFd,
+                    reinterpret_cast<sockaddr*>(&clientAddr), //不用const因为accept要修改这块内存
+                    &clientAddrLen //地址长度变量的位置：操作系统读取提供的空间大小并写回地址的实际长度
+                );
+
+                if(clientFd == -1){
+                    const int error = errno;
+
+                    if(error == EINTR){
+                        continue;
+                    }
+
+                    //当前没有连接可接收，结束本轮接收循环
+                    if(error == EAGAIN || error == EWOULDBLOCK){
+                        break;
+                    }
+
+                    const std::error_code ec(error, std::generic_category());
+                    const std::string reason = ec.message();
+                    LOGGER_ERROR("接收客户端连接失败,监听fd=" + std::to_string(listenFd)
+                                + ",errno=" + std::to_string(error) + ",原因=" + reason);
+                    close(epollFd);
+                    close(listenFd);
+                    return 1;
+                }
+
+                //成功接收后，计数加一
+                acceptedCount++;
+
+                LOGGER_INFO("接收客户端连接,fd=" + std::to_string(clientFd));
+
+                //保存函数handle和参数clientFd，交给线程池安排执行
+                try{
+                    pool.enqueue(handleClient,clientFd);
+                }
+                catch(const std::exception& e){
+                    LOGGER_ERROR("提交连接任务失败,关闭连接,fd=" + std::to_string(clientFd)
+                                + "，原因=" + e.what());
+                    close(clientFd);
+                }
+            }
+
         }
     }
 
     //释放socket
+    close(epollFd);
     close(listenFd);
 
     return 0;
