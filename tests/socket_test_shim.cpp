@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 
 namespace {
@@ -78,6 +79,12 @@ extern "C" ssize_t recv(int fd, void* buffer, size_t length, int flags) {
     using Function = ssize_t (*)(int, void*, size_t, int);
     static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "recv"));
     static std::atomic<bool> injected{false};
+    static std::atomic<bool> again{false};
+    if (enabled("CPP_EPOLL_TEST_RECV_EAGAIN") && !again.exchange(true)) {
+        trace("RECV_EAGAIN\n");
+        errno = EAGAIN;
+        return -1;
+    }
     if (enabled("CPP_TCP_TEST_EINTR") && !injected.exchange(true)) {
         trace("RECV_EINTR\n");
         errno = EINTR;
@@ -90,6 +97,12 @@ extern "C" ssize_t send(int fd, const void* buffer, size_t length, int flags) {
     using Function = ssize_t (*)(int, const void*, size_t, int);
     static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "send"));
     static std::atomic<unsigned> calls{0};
+    static std::atomic<bool> again{false};
+    if (enabled("CPP_EPOLL_TEST_SEND_EAGAIN") && !again.exchange(true)) {
+        trace("SEND_EAGAIN\n");
+        errno = EAGAIN;
+        return -1;
+    }
     const unsigned call = ++calls;
     if (enabled("CPP_TCP_TEST_EINTR") && (call == 1 || call == 3)) {
         trace("SEND_EINTR\n");
@@ -104,4 +117,60 @@ extern "C" ssize_t send(int fd, const void* buffer, size_t length, int flags) {
         trace("PARTIAL_SEND\n");
     }
     return sent;
+}
+
+// 以下故障仅由 epoll 验收显式启用；默认透传真实系统调用。
+extern "C" int epoll_wait(int fd, epoll_event* events, int count, int timeout) {
+    using Function = int (*)(int, epoll_event*, int, int);
+    static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "epoll_wait"));
+    static std::atomic<bool> injected{false};
+    if (enabled("CPP_EPOLL_TEST_WAIT_EINTR") && !injected.exchange(true)) {
+        trace("EPOLL_WAIT_EINTR\n");
+        errno = EINTR;
+        return -1;
+    }
+    return real(fd, events, count, timeout);
+}
+
+extern "C" int epoll_ctl(int fd, int operation, int client, epoll_event* event) {
+    using Function = int (*)(int, int, int, epoll_event*);
+    static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "epoll_ctl"));
+    static int listener = -1;
+    static bool addFailed = false, modFailed = false, delFailed = false;
+    if (client != listener && listener >= 0) {
+        if (operation == EPOLL_CTL_ADD && enabled("CPP_EPOLL_TEST_ADD_FAIL") && !addFailed) {
+            addFailed = true;
+            trace("CLIENT_ADD_FAIL\n");
+            errno = ENOMEM;
+            return -1;
+        }
+        if (operation == EPOLL_CTL_MOD && enabled("CPP_EPOLL_TEST_MOD_FAIL") && !modFailed) {
+            modFailed = true;
+            trace("CLIENT_MOD_FAIL\n");
+            errno = EIO;
+            return -1;
+        }
+        if (operation == EPOLL_CTL_DEL && enabled("CPP_EPOLL_TEST_DEL_FAIL") && !delFailed) {
+            delFailed = true;
+            trace("CLIENT_DEL_FAIL\n");
+            errno = EIO;
+            return -1;
+        }
+    }
+    const int result = real(fd, operation, client, event);
+    if (result == 0 && listener < 0 && operation == EPOLL_CTL_ADD) listener = client;
+    return result;
+}
+
+extern "C" int shutdown(int fd, int how) {
+    using Function = int (*)(int, int);
+    static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "shutdown"));
+    static bool injected = false;
+    if (how == SHUT_WR && enabled("CPP_EPOLL_TEST_SHUTDOWN_FAIL") && !injected) {
+        injected = true;
+        trace("SHUTDOWN_FAIL\n");
+        errno = EIO;
+        return -1;
+    }
+    return real(fd, how);
 }

@@ -1,5 +1,4 @@
 #pragma once
-#include "thread_pool.h"
 
-//运行监听和连接分发流程，使用调用者提供的线程池；失败时返回 1。
-int runTcpServer(ThreadPool& pool);
+//运行LT epoll事件循环，处理监听及客户端事件；失败时释放资源并返回1。
+int runTcpServer();

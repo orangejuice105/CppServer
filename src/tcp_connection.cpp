@@ -1,11 +1,8 @@
 #include "tcp_connection.h"
 #include "logger.h"
 #include <cerrno>
-#include <iostream>
 #include <string>
-#include <system_error>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <unistd.h>
 #include <cstddef>
 #include "http_request.h"
@@ -14,47 +11,6 @@
 #include "http_router.h"
 #include <chrono>
 #include <algorithm>
-
-//负责完整发送响应
-bool sendAll(int clientFd,const std::string& data){
-    std::size_t totalSent = 0;
-
-    while(totalSent < data.size()){
-        ssize_t sent = send(clientFd,
-                            data.data() + totalSent, //data.data(): 取得字符串内部字节的起始地址，加上totalSent跳过已发送的
-                            data.size() - totalSent, //本次最多发送剩余多少字节
-                            MSG_NOSIGNAL); //延续之前的处理，避免发送失败时的SIGPIPE终止进程
-
-        if(sent == -1){
-            const int error = errno;
-            if(error == EINTR){
-                continue;
-            }
-
-            else if(error == EAGAIN || error == EWOULDBLOCK){
-                LOGGER_WARN("客户端发送超时,fd=" + std::to_string(clientFd));
-                return false;
-            }
-
-            else{
-                const std::error_code ec(error,std::generic_category());
-                LOGGER_ERROR("发送失败,fd=" + std::to_string(clientFd)
-                            + ",errno=" + std::to_string(error)
-                            + ",原因=" + ec.message());
-                return false;
-            }
-        }
-
-        if(sent == 0){
-            LOGGER_ERROR("发送未取得进展,fd=" + std::to_string(clientFd));
-            return false;
-        }
-
-        totalSent += static_cast<std::size_t>(sent);
-    }
-
-    return true;
-}
 
 std::string buildRequestErrorResponse(const std::string& request,std::size_t maxHeaderBytes,int statusCode,const std::string& reasonPhrase){
     //寻找第一个换行
@@ -86,103 +42,6 @@ std::string buildRequestErrorResponse(const std::string& request,std::size_t max
                             isHeadRequest);
 
     return response;
-}
-
-// 请求接收阶段，若请求行完整、未超限且解析成功，则尝试发送指定错误响应。
-// 按请求版本构造响应，并处理 HEAD 无正文；连接由 handleClient() 统一关闭。
-void sendRequestErrorResponse(int clientFd,const std::string& request,std::size_t maxHeaderBytes,int statusCode,const std::string& reasonPhrase){
-    //把错误响应的字符串拼接起来
-    std::string response = buildRequestErrorResponse(
-                        request, maxHeaderBytes, statusCode, reasonPhrase);
-    
-    //如果字符串为空说明本次不构造响应
-    if(response.empty()){
-        return;
-    }
-    //发送完整响应
-    if(sendAll(clientFd,response)){
-        LOGGER_INFO("HTTP错误响应发送完成,fd=" + std::to_string(clientFd) + ",状态码=" + std::to_string(statusCode));
-    }
-
-    return;
-}
-
-//先结束发送，再在时间和字节上限内清理剩余接收数据，最后关闭连接
-void closeClientConnection(int clientFd){
-    //先结束发送方向
-    //SHUT_WR: 结束这个连接的发送方向
-    int shutdownResult = shutdown(clientFd,SHUT_WR); //shutdown: 结束此连接的发送方向，仍可接收数据；最后仍需close释放描述符
-
-    if(shutdownResult == -1){
-        const int error = errno;
-        LOGGER_WARN("结束发送方向失败,fd=" + std::to_string(clientFd) + ",errno=" + std::to_string(error));
-        close(clientFd);
-        return;
-    }
-
-    //给清理阶段设置较短的接收超时
-    timeval drainTimeout{};
-    drainTimeout.tv_usec = 100000;
-    int drainTimeoutResult = setsockopt(clientFd,SOL_SOCKET,SO_RCVTIMEO,&drainTimeout,sizeof(drainTimeout));
-
-    if(drainTimeoutResult == -1){
-        const int error = errno;
-        LOGGER_WARN("设置清理接收超时失败,fd=" + std::to_string(clientFd) + ",errno=" + std::to_string(error));
-        close(clientFd);
-        return;
-    }
-
-    //准备清理缓冲区、字节上限和截止时间
-    char discardBuffer[1024]; //暂存清理过程中收到的数据
-    const std::size_t maxDrainBytes = 64*1024; //最多额外清理64KiB
-    std::size_t drainedBytes = 0; //已经清理的字节数
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1); //总截止时间
-    const char* drainReason = "预算已耗尽";
-
-    //清理循环
-    while(drainedBytes < maxDrainBytes && std::chrono::steady_clock::now() < deadline){
-        //计算本次最多能读取多少字节
-        std::size_t toRead = std::min(sizeof(discardBuffer),maxDrainBytes - drainedBytes);
-
-        //读取数据
-        ssize_t received = recv(clientFd,discardBuffer,toRead,0);
-        //收到数据时，累积清理量并继续
-        if (received > 0) {
-            drainedBytes += static_cast<std::size_t>(received);
-            continue;
-        }
-        //对方结束发送，已发来的数据也读完时停止清理
-        if (received == 0) {
-            drainReason = "对方结束发送";
-            break;
-        }
-        //接收失败时
-        const int error = errno;
-        //被信号中断就重新尝试
-        if(error == EINTR){
-            continue;
-        }
-        //清理接收等待超时直接结束清理
-        if(error == EAGAIN || error == EWOULDBLOCK){
-            drainReason = "清理等待超时";
-            break;
-        }
-        //其他错误记录后结束
-        LOGGER_WARN("清理客户端剩余数据失败,fd=" + std::to_string(clientFd)
-                    + ",errno=" + std::to_string(error));
-        drainReason = "接收错误";
-        break;
-    }
-    if(drainedBytes >= maxDrainBytes){
-        drainReason = "达到64KiB上限";
-    }
-    else if(std::chrono::steady_clock::now() >= deadline){
-        drainReason = "达到1秒上限";
-    }
-    LOGGER_INFO("连接清理结束,fd=" + std::to_string(clientFd)
-                + ",已清理字节=" + std::to_string(drainedBytes)
-                + ",原因=" + drainReason);
-    close(clientFd);
 }
 
 std::string processHttpRequest(const std::string& requestHead, int clientFd) {
@@ -327,6 +186,46 @@ std::string processHttpRequest(const std::string& requestHead, int clientFd) {
     return response;
 }
 
+ReceiveResult checkReceiveTimeout(TcpConnection& connection){
+    const std::size_t maxHeaderBytes = 8 * 1024;
+    const auto now = std::chrono::steady_clock::now();
+
+    //判断两个期限
+    bool totalExpired = now >= connection.requestDeadline;
+    bool idleExpired = now >= connection.receiveIdleDeadline;
+
+    //总期限没到，空闲期限也没到才允许继续等待
+    if(!totalExpired && !idleExpired){
+        return ReceiveResult::NeedMoreData;
+    }
+
+    if(totalExpired){
+        LOGGER_WARN("请求头接收总时限已到,fd=" + std::to_string(connection.fd));
+    }
+
+    if(idleExpired){
+        LOGGER_WARN("接收等待超时,fd=" + std::to_string(connection.fd));
+    }
+
+    //到期后尝试准备408
+    //空连接没有请求数据，返回关闭结果，由调用者释放连接
+    if(connection.request.empty()){
+        return ReceiveResult::CloseConnection;
+    }
+
+    connection.response = buildRequestErrorResponse(
+                        connection.request, maxHeaderBytes, 408, "Request Timeout");
+
+    //判断响应是否构造成功,失败请求释放连接
+    if(connection.response.empty()){
+        return ReceiveResult::CloseConnection;
+    }
+
+    //最后设置发送进度并返回
+    connection.sentBytes = 0;
+    return ReceiveResult::ResponseReady;
+}
+
 ReceiveResult receiveRequest(TcpConnection& connection){
     //准备临时缓冲区和长度预算
     char buffer[1024]{};
@@ -335,6 +234,12 @@ ReceiveResult receiveRequest(TcpConnection& connection){
 
     //处理中断重试的循环
     while (true){
+        //检查是否超时
+        ReceiveResult timeoutResult = checkReceiveTimeout(connection);
+        if (timeoutResult != ReceiveResult::NeedMoreData) {
+            return timeoutResult;
+        }
+
         ssize_t received = recv(connection.fd,buffer,sizeof(buffer),0);
         if(received == -1){
             const int error = errno;
@@ -347,9 +252,15 @@ ReceiveResult receiveRequest(TcpConnection& connection){
             }
 
             else{
-                LOGGER_ERROR("发生错误,fd=" + std::to_string(connection.fd) + ",errno=" + std::to_string(error));
+                LOGGER_ERROR("接收客户端请求失败,fd=" + std::to_string(connection.fd) + ",errno=" + std::to_string(error));
                 return ReceiveResult::CloseConnection;
             }
+        }
+
+        //读取后再检查一次，防止读取后已经越过截止时间，之后才允许更新空闲期限
+        timeoutResult = checkReceiveTimeout(connection);
+        if (timeoutResult != ReceiveResult::NeedMoreData) {
+            return timeoutResult;
         }
 
         //处理接收方向结束，请求仍未完成
@@ -370,6 +281,9 @@ ReceiveResult receiveRequest(TcpConnection& connection){
             connection.sentBytes = 0;
             return ReceiveResult::ResponseReady;
         }
+
+        //成功收到数据，重新给予30秒等待时间
+        connection.receiveIdleDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
 
         //received > 0时把数据追加到连接对象
         connection.request.append(buffer,static_cast<std::size_t>(received));
@@ -398,7 +312,7 @@ ReceiveResult receiveRequest(TcpConnection& connection){
 
                 if(lineParsed && requestLineInfo.version[5] == '1' && requestLineInfo.target.size() > maxTargetBytes){
                     LOGGER_WARN("请求目标超限,fd=" + std::to_string(connection.fd));
-                    connection.response = buildRequestErrorResponse(connection.request,maxHeaderBytes,414,"URL Too Long");
+                    connection.response = buildRequestErrorResponse(connection.request,maxHeaderBytes,414,"URI Too Long");
 
                     if(connection.response.empty()){
                         return ReceiveResult::CloseConnection;
@@ -408,219 +322,227 @@ ReceiveResult receiveRequest(TcpConnection& connection){
                 }
             }
         }
+
+        //寻找请求头结束位置
+        std::size_t headerEnd = connection.request.find("\r\n\r\n");
+        if(headerEnd != std::string::npos){
+            //处理完整请求头超限的情况
+            if(headerEnd + 4 > maxHeaderBytes){
+                LOGGER_WARN("完整请求头超限,fd=" + std::to_string(connection.fd));
+                connection.response = buildRequestErrorResponse(
+                        connection.request, maxHeaderBytes, 431, "Request Header Fields Too Large");
+
+                if(connection.response.empty()){
+                    return ReceiveResult::CloseConnection;
+                }
+                connection.sentBytes = 0;
+                return ReceiveResult::ResponseReady;
+            }
+
+            //没超限时，处理完整请求
+            //先截取请求头
+            std::string requestHead = connection.request.substr(0,headerEnd + 4);
+            connection.response = processHttpRequest(requestHead,connection.fd);
+
+            connection.sentBytes = 0;
+            return ReceiveResult::ResponseReady;
+        }
+        else{
+            if(connection.request.size() >= maxHeaderBytes){
+                LOGGER_WARN("请求头超限,fd=" + std::to_string(connection.fd));
+                connection.response = buildRequestErrorResponse(
+                        connection.request, maxHeaderBytes, 431, "Request Header Fields Too Large");
+
+                if(connection.response.empty()){
+                    return ReceiveResult::CloseConnection;
+                }
+                connection.sentBytes = 0;
+                return ReceiveResult::ResponseReady;
+            }
+        }
+
         return ReceiveResult::NeedMoreData;
     }
-    
+
 }
 
-void handleClient(int clientFd){
-    //固定的接收阶段截止时间；每次收到数据都不重新计时，不包含线程池排队时间。
-    const auto requestDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
-    //记录开始处理
-    LOGGER_INFO("开始处理客户端,fd=" + std::to_string(clientFd));
-
-    //timeval：表示时间的结构体
-    timeval timeout{};
-    timeout.tv_sec = 30; //秒，当前设置为30
-    timeout.tv_usec = 0; //微秒，当前设置为0
-
-    //设置接收超时
-    int recvTimeoutResult = setsockopt(
-        clientFd,
-        SOL_SOCKET, //设置socket层面的通用选项
-        SO_RCVTIMEO, //选项名称：接收超时
-        &timeout, //选项值存的位置
-        sizeof(timeout) //选项值占的字节
-    );
-
-    if(recvTimeoutResult == -1){
-        const int error = errno;
-        const std::error_code ec(error, std::generic_category());
-        const std::string reason = ec.message();
-        LOGGER_ERROR("设置接收超时失败,关闭连接,fd=" + std::to_string(clientFd)
-             + ",errno=" + std::to_string(error) + "，原因=" + reason);
-        close(clientFd);
-        return;
+SendResult sendResponse(TcpConnection& connection){
+    //防止后面计算剩余长度时出错
+    if(connection.sentBytes > connection.response.size()){
+        LOGGER_ERROR("进度异常,fd=" + std::to_string(connection.fd));
+        return SendResult::CloseConnection;
+    }
+    //没有剩余数据时
+    if(connection.sentBytes == connection.response.size()){
+        return SendResult::SendComplete;
     }
 
-    //设置发送超时
-    int sendTimeoutResult = setsockopt(
-        clientFd,
-        SOL_SOCKET, //设置socket层面的通用选项
-        SO_SNDTIMEO, //选项名称：发送超时
-        &timeout, //选项值存的位置
-        sizeof(timeout) //选项值占的字节
-    );
-
-    if(sendTimeoutResult == -1){
-        const int error = errno;
-        const std::error_code ec(error, std::generic_category());
-        const std::string reason = ec.message();
-        LOGGER_ERROR("设置发送超时失败，关闭连接,fd=" + std::to_string(clientFd)
-             + ",errno=" + std::to_string(error) + "，原因=" + reason);
-        close(clientFd);
-        return;
-    }
-
-    char buffer[1024]{}; //缓冲区，暂存收到的数据的内存
-
-    //准备累积空间
-    std::string request; //保存多次接收累积起来的字节
-    const std::size_t maxHeaderBytes = 8*1024; //给请求头设置8192字节上限
-    const std::size_t maxTargetBytes = 4096; //请求目标允许的最大字节数
-    bool requestLineChecked = false; //是否已完成接收阶段的请求行检查
-
-    auto finishRequestDeadline = [&]{
-        LOGGER_WARN("请求头接收总时限已到,fd=" + std::to_string(clientFd)
-                    + ",已接收字节=" + std::to_string(request.size()));
-        if(!request.empty()){
-            sendRequestErrorResponse(clientFd,request,maxHeaderBytes,408,"Request Timeout");
-        }
-    };
-
+    //准备中断循环尝试
     while(true){
-        //单次 recv 最多等待30秒，同时不能越过固定的60秒总截止时间。
-        //不足1微秒时直接结束，避免给 SO_RCVTIMEO 传入0而变成无限等待。
-        const auto remaining = std::chrono::duration_cast<std::chrono::microseconds>(
-            requestDeadline - std::chrono::steady_clock::now());
-        if(remaining <= std::chrono::microseconds::zero()){
-            finishRequestDeadline();
-            break;
+        //每次发送前先检查是否到达发送截止时间
+        if(std::chrono::steady_clock::now() >= connection.sendIdleDeadline){
+            LOGGER_WARN("发送等待超时,fd=" + std::to_string(connection.fd));
+            return SendResult::CloseConnection;
         }
-        const auto wait = std::min(remaining,
-            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::seconds(30)));
-        timeval receiveWait{};
-        receiveWait.tv_sec = static_cast<decltype(receiveWait.tv_sec)>(wait.count() / 1000000);
-        receiveWait.tv_usec = static_cast<decltype(receiveWait.tv_usec)>(wait.count() % 1000000);
-        if(setsockopt(clientFd,SOL_SOCKET,SO_RCVTIMEO,&receiveWait,sizeof(receiveWait)) == -1){
+
+        ssize_t sent = send(connection.fd,connection.response.data() + connection.sentBytes,
+                            connection.response.size() - connection.sentBytes,MSG_NOSIGNAL);
+
+        if(sent == -1){
             const int error = errno;
-            LOGGER_ERROR("更新接收等待时间失败,fd=" + std::to_string(clientFd)
-                         + ",errno=" + std::to_string(error));
-            break;
-        }
-
-        //读取从客户端(clientFd)发来的数据并存在buffer里
-        //ssize_t: 系统接口使用的有符号整数类型
-        //recv(): 接收返回收到的字节数，等于0时说明对方已正常结束发送，且待接收数据已读完，等于-1时说明接收失败
-        ssize_t received = recv(clientFd,buffer,sizeof(buffer),0); //sizeof(buffer): 最多允许写入的字节数
-                                                                    //0: 不启用额外的接受选项
-        const int receiveError = received < 0 ? errno : 0;
-        if(received > 0){
-            //buffer只暂存本次收到的字节，request保存此前累积的内容。
-            request.append(buffer,static_cast<std::size_t>(received));
-        }
-        //包括持续收到数据、EINTR重试的情况；到期后不再接受一个迟到的完整请求。
-        if(std::chrono::steady_clock::now() >= requestDeadline){
-            finishRequestDeadline();
-            break;
-        }
-
-        if(received == -1){
-            const int error = receiveError; //使用调用后立即保存的错误编号
-
-            //当系统调用被信号打断时，重新尝试
             if(error == EINTR){
                 continue;
             }
 
-            if(error == EAGAIN || error == EWOULDBLOCK){ //EAGAIN,EWOULDBLOCK: 系统定义的错误名称
-                LOGGER_WARN("客户端接收超时,关闭连接,fd=" + std::to_string(clientFd));
-
-                //已收到数据时尝试发送 408；能否发送由辅助函数的请求行检查决定
-                if(!request.empty()){
-                    sendRequestErrorResponse(clientFd,request,maxHeaderBytes,408,"Request Timeout"); //408 表示服务器没有在愿意等待的时间内收到完整请求
-                }
+            else if(error == EAGAIN || error == EWOULDBLOCK){
+                return SendResult::NeedWrite;
             }
+
             else{
-                //std::error_code: 保存错误编号及其所属类别的对象
-                const std::error_code ec(error,std::generic_category()); //std::generic_category: 指定按通用类别解释
-                const std::string reason = ec.message(); //把编号转换成可阅读的文字说明
-                LOGGER_ERROR("接收失败,fd = " + std::to_string(clientFd)
-                            + ",errno=" + std::to_string(error) + ",原因="  + reason);
+                LOGGER_ERROR("发送失败,fd=" + std::to_string(connection.fd)
+                            + ",errno=" + std::to_string(error));
+                return SendResult::CloseConnection;
             }
-            break;
+        }
+        if(sent == 0){
+            LOGGER_ERROR("发送未取得进展,fd=" + std::to_string(connection.fd));
+            return SendResult::CloseConnection;
         }
 
-        if(received == 0){
-            std::cout << "对方已结束发送" << '\n';
+        //成功发送后记录时刻并累计进度
+        const auto sentAt = std::chrono::steady_clock::now();
+        connection.sentBytes += static_cast<std::size_t>(sent);
 
-            if(!request.empty()){
-                LOGGER_WARN("客户端结束发送时请求头仍不完整,fd=" + std::to_string(clientFd));
-                sendRequestErrorResponse(clientFd,request,maxHeaderBytes,400,"Bad Request");
-            }
-            break;
+        //数据发完了返回SendComplete
+        if(connection.sentBytes == connection.response.size()){
+            return SendResult::SendComplete;
         }
+
+        //数据没发完检查是否已经过期
+        if(sentAt >= connection.sendIdleDeadline){
+            LOGGER_WARN("发送等待超时,fd=" + std::to_string(connection.fd));
+            return SendResult::CloseConnection;
+        }
+
+        //没过期则给予新的30s等待时间
+        connection.sendIdleDeadline = sentAt + std::chrono::seconds(30);
+
+        return SendResult::NeedWrite;
+    }
+}
+
+bool beginDrain(TcpConnection& connection){
+    //已经进入清理阶段，就直接返回成功，目的是保留原来的进度和截止时间
+    if(connection.phase == ConnectionPhase::Draining){
+        return true;
+    }
+
+    //判断是否满足开始清理的条件
+    //连接处于发送阶段而且整个响应已经交给内核才能正常进入清理
+    if(connection.phase != ConnectionPhase::Sending || connection.sentBytes != connection.response.size()){
+        LOGGER_WARN("连接阶段或发送进度不满足开始清理的条件,fd=" + std::to_string(connection.fd));
+        return false;
+    }
+
+    //结束发送方向
+    int shutdownResult = shutdown(connection.fd,SHUT_WR);
+
+    if(shutdownResult == -1){
+        const int error = errno;
+        LOGGER_WARN("结束发送方向失败,fd=" + std::to_string(connection.fd) + ",errno=" + std::to_string(error));
+        return false;
+    }
+
+    //设置清理进度和截止时间
+    const auto now = std::chrono::steady_clock::now(); //先取得当前时间
+    connection.drainedBytes = 0; //把已清理字节数归零
+    connection.drainDeadline = now + std::chrono::seconds(1); //设置整个清理阶段最多持续1秒
+    connection.drainIdleDeadline = now + std::chrono::milliseconds(100); //当前最多等待下一批数据100毫秒
+
+    //切换阶段并返回
+    connection.phase = ConnectionPhase::Draining;
+
+    return true;
+}
+
+DrainResult drainConnection(TcpConnection& connection){
+    //先检查阶段，再准备缓冲区
+    if(connection.phase != ConnectionPhase::Draining){
+        LOGGER_WARN("连接未进入清理阶段,fd=" + std::to_string(connection.fd));
+        return DrainResult::CloseConnection;
+    }
+
+    char discardBuffer[1024]; //暂存本次读出的数据
+    const std::size_t maxDrainBytes = 64*1024; //读出数据之和的最大字节数
+
+    while(true){
+        const auto now = std::chrono::steady_clock::now();
+
+        if(connection.drainedBytes >= maxDrainBytes){
+            LOGGER_INFO("达到字节上限,fd=" + std::to_string(connection.fd));
+            return DrainResult::CloseConnection;
+        }
+
+        if(now >= connection.drainDeadline){
+            LOGGER_INFO("达到总时限,fd=" + std::to_string(connection.fd));
+            return DrainResult::CloseConnection;
+        }
+
+        if(now >= connection.drainIdleDeadline){
+            LOGGER_INFO("等待数据超时,fd=" + std::to_string(connection.fd));
+            return DrainResult::CloseConnection;
+        }
+
+        //通过检查后说明剩余字节预算大于零
+        //计算本次读取多少，再调用recv()
+        std::size_t toRead = std::min(sizeof(discardBuffer),maxDrainBytes - connection.drainedBytes);
+
+        ssize_t received = recv(connection.fd,discardBuffer,toRead,0);
+
         if(received > 0){
-            //检查接收中的请求行是否已经表明目标超长
-            if(!requestLineChecked){
-                std::size_t lineEnd = request.find("\r\n");
-                if(lineEnd == std::string::npos){
-                    std::string earlyMethod; //接收判断函数输出的方法名
-                    if(isRequestTargetTooLong(request,maxTargetBytes,earlyMethod)){
-                        LOGGER_WARN("请求目标长度超出上限,请求行尚未完整,fd=" + std::to_string(clientFd));
-                        std::string response = buildHttpResponse(
-                        "HTTP/1.1", 414, "URI Too Long", "URI Too Long\n",
-                        earlyMethod == "HEAD");
+            //先累计清理量
+            connection.drainedBytes += static_cast<std::size_t>(received);
 
-                        if (sendAll(clientFd, response)) {
-                            LOGGER_INFO("HTTP错误响应发送完成,fd=" + std::to_string(clientFd) + ",状态码=414");
-                        }
-                        break;
-                    }
+            //重新取得读到这批数据的时间
+            const auto receivedAt = std::chrono::steady_clock::now();
+
+            //再更新等待期限
+            connection.drainIdleDeadline = receivedAt + std::chrono::milliseconds(100);
+
+            if(connection.drainedBytes >= maxDrainBytes || receivedAt >= connection.drainDeadline){
+                //先确定原因
+                std::string reason = "达到1秒总时限";
+                if (connection.drainedBytes >= maxDrainBytes) {
+                    reason = "达到64KiB上限";
                 }
 
-                //检查完整请求行是否表明目标超长
-                if(lineEnd != std::string::npos && lineEnd + 2 <= maxHeaderBytes){
-                    requestLineChecked = true; //标记这条请求行已经检查过
-                    std::string earlyRequestLine = request.substr(0,lineEnd); //截取请求行
-                    HttpRequest requestLineInfo;
-                    bool lineParsed = parseRequestLine(earlyRequestLine,requestLineInfo); //解析
+                LOGGER_INFO("连接清理结束,fd=" + std::to_string(connection.fd)
+                            + ",已清理字节=" + std::to_string(connection.drainedBytes)
+                            + ",原因=" + reason);
+                return DrainResult::CloseConnection;
+            }
+            return DrainResult::NeedMoreData;
+        }
 
-                    //解析成功后再判断目标是否超长
-                    if(lineParsed && requestLineInfo.version[5] == '1' && requestLineInfo.target.size() > maxTargetBytes){
-                        LOGGER_WARN("请求目标长度超出上限,fd=" + std::to_string(clientFd));
-                        sendRequestErrorResponse(
-                            clientFd, request, maxHeaderBytes, 414, "URI Too Long");
-                        break;
-                    }
-                }
+        //对方结束发送且没有剩余数据可读时
+        if(received == 0){
+            LOGGER_INFO("对方结束发送,清理结束,fd=" + std::to_string(connection.fd));
+            return DrainResult::CloseConnection;
+        }
+
+        //失败时
+        if(received == -1){
+            const int error = errno;
+            if(error == EINTR){
+                continue;
             }
 
-            //判断请求头是否收完整(HTTP/1.1 请求头以空行结束，通常表现为连续的 \r\n\r\n)
-            std::size_t headerEnd = request.find("\r\n\r\n");
-
-            if(headerEnd != std::string::npos){
-                if(headerEnd + 4 > maxHeaderBytes){
-                    LOGGER_WARN("请求头长度超出上限");
-                    sendRequestErrorResponse(
-                        clientFd, request, maxHeaderBytes,431,"Request Header Fields Too Large");
-                    break;
-                }
-                else{
-                    //打印完整请求头
-                    std::cout << request.substr(0, headerEnd + 4) << std::endl;
-
-                    std::string requestHead = request.substr(0, headerEnd + 4);
-                    std::string response = processHttpRequest(requestHead, clientFd);
-
-                    //发送完整响应
-                    if(sendAll(clientFd,response)){
-                        LOGGER_INFO("HTTP响应发送完成,fd=" + std::to_string(clientFd));
-                    }
-
-                    break;
-                }
+            if(error == EAGAIN || error == EWOULDBLOCK){
+                return DrainResult::NeedMoreData;
             }
-            else{
-                if(request.size() >= maxHeaderBytes){
-                    LOGGER_WARN("累积数据达到上限");
-                    sendRequestErrorResponse(
-                        clientFd, request, maxHeaderBytes,431,"Request Header Fields Too Large");
-                    break;
-                }
-            }
+
+            LOGGER_WARN("清理客户端剩余数据失败,fd=" + std::to_string(connection.fd) + ",errno=" + std::to_string(error));
+            return DrainResult::CloseConnection;
         }
     }
-    closeClientConnection(clientFd);
-    LOGGER_INFO("结束处理客户端,fd=" + std::to_string(clientFd));
 }

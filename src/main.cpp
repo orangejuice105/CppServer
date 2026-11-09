@@ -1,5 +1,4 @@
 #include <iostream>
-#include "thread_pool.h"
 #include "logger.h"
 #include "tcp_server.h"
 
@@ -32,8 +31,5 @@ int main(){
         return 1;
     }
 
-    //默认运行配置：4个工作线程，最多64个连接任务等待处理
-    ThreadPool pool(4,64);
-
-    return runTcpServer(pool);
+    return runTcpServer();
 }

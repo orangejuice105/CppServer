@@ -9,8 +9,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 查找当前平台的线程编译和链接配置。
 find_package(Threads REQUIRED)
 
-# 编译线程池库，并向使用它的目标提供头文件目录和线程依赖。
-add_library(thread_pool src/thread_pool.cpp)
+# 保留线程池供后续学习；按需使用 --target thread_pool 单独构建。
+# 当前网络收发由事件循环处理，线程池不加入默认构建。
+add_library(thread_pool EXCLUDE_FROM_ALL src/thread_pool.cpp)
 target_include_directories(thread_pool PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
@@ -32,7 +33,7 @@ add_executable(main
     src/http_router.cpp
     src/http_response.cpp
 )
-target_link_libraries(main PRIVATE thread_pool logger)
+target_link_libraries(main PRIVATE logger)
 
 # 当前面向 Linux / WSL，开启常用编译警告帮助发现问题。
 target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic)
@@ -41,19 +42,36 @@ target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(nonblocking_recv EXCLUDE_FROM_ALL experiments/nonblocking_recv.cpp)
 target_compile_options(nonblocking_recv PRIVATE -Wall -Wextra -Wpedantic)
 
-# 测试工具默认关闭；验收脚本启用后，链接真实连接代码检查关闭边界和发送超时。
-option(CPPSERVER_BUILD_TEST_TOOLS "Build Linux HTTP verification tools" OFF)
-if(CPPSERVER_BUILD_TEST_TOOLS)
-    add_executable(http_connection_checks
-        tests/http_connection_checks.cpp
+# 当前 LT epoll 验收工具；默认关闭，不参与正常服务器运行。
+option(CPPSERVER_BUILD_EPOLL_TEST_TOOLS "Build Linux epoll verification tools" OFF)
+if(CPPSERVER_BUILD_EPOLL_TEST_TOOLS)
+    add_library(epoll_test_core OBJECT
+        src/tcp_server.cpp
         src/tcp_connection.cpp
         src/http_request.cpp
         src/http_router.cpp
         src/http_response.cpp
     )
-    target_link_libraries(http_connection_checks PRIVATE logger)
-    target_compile_options(http_connection_checks PRIVATE -Wall -Wextra -Wpedantic)
-    target_link_options(http_connection_checks PRIVATE
-        -Wl,--wrap=recv -Wl,--wrap=setsockopt -Wl,--wrap=shutdown -Wl,--wrap=close
-    )
+    target_link_libraries(epoll_test_core PUBLIC logger)
+    target_compile_options(epoll_test_core PRIVATE -Wall -Wextra -Wpedantic)
+
+    add_executable(epoll_connection_checks tests/epoll_connection_checks.cpp)
+    add_executable(epoll_send_checks tests/epoll_send_checks.cpp)
+    add_executable(epoll_server_fault_checks tests/epoll_server_fault_checks.cpp)
+    # 仅测试时把指定响应扩大；沿用真实入口、收发函数及事件循环。
+    add_executable(epoll_response_fixture
+        src/main.cpp tests/epoll_response_fixture.cpp)
+    foreach(test_target IN ITEMS epoll_connection_checks epoll_send_checks
+            epoll_server_fault_checks epoll_response_fixture)
+        target_link_libraries(${test_target} PRIVATE epoll_test_core)
+        target_compile_options(${test_target} PRIVATE -Wall -Wextra -Wpedantic)
+    endforeach()
+    target_link_options(epoll_connection_checks PRIVATE
+        -Wl,--wrap=send -Wl,--wrap=recv)
+    target_link_options(epoll_server_fault_checks PRIVATE
+        -Wl,--wrap=bind -Wl,--wrap=accept -Wl,--wrap=epoll_ctl
+        -Wl,--wrap=epoll_wait -Wl,--wrap=close)
+    target_link_options(epoll_response_fixture PRIVATE
+        -Wl,--wrap=_Z14receiveRequestR13TcpConnection
+        -Wl,--wrap=accept -Wl,--wrap=send)
 endif()

@@ -13,6 +13,7 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 #include <unordered_map>
+#include <chrono>
 
 //保留原有文件状态标志并开启非阻塞；失败时记录日志
 bool setNonblocking(int fd){
@@ -42,7 +43,171 @@ bool setNonblocking(int fd){
     return true;
 }
 
-int runTcpServer(ThreadPool& pool){
+//最终释放已纳入连接容器管理的客户端；取消epoll登记，关闭描述符并删除连接对象
+void removeConnection(int epollFd,std::unordered_map<int,TcpConnection>& connections,int clientFd){
+    //先在容器中找到连接
+    auto it = connections.find(clientFd);
+    //没找到就返回,说明容器目前没有管理这个连接，本函数不继续释放它
+    if(it == connections.end()) {
+        return;
+    }
+
+    //找到连接后，调用epoll_ctl取消该连接的epoll登记
+    int removeResult = epoll_ctl(epollFd,EPOLL_CTL_DEL,clientFd,nullptr);
+
+    //这里不因为删除登记失败就提前返回，否则可能留下描述符和连接对象
+    if(removeResult == -1){
+        const int error = errno;
+        LOGGER_WARN("取消epoll登记失败,fd=" + std::to_string(clientFd) + ",errno=" + std::to_string(error));
+    }
+
+    //关闭客户端描述符
+    int closeResult = close(clientFd);
+
+    if(closeResult == -1){
+        const int error = errno;
+        LOGGER_WARN("关闭客户端描述符失败,fd=" + std::to_string(clientFd) + ",errno=" + std::to_string(error));
+    }
+
+    //删除连接对象
+    connections.erase(it);
+}
+
+//释放容器管理的全部客户端连接；调用时epoll描述符应仍然有效
+void removeAllConnections(int epollFd,std::unordered_map<int,TcpConnection>& connections){
+    while(!connections.empty()){
+        int clientFd = connections.begin()->first;
+
+        removeConnection(epollFd, connections, clientFd);
+    }
+}
+
+//根据连接阶段修改epoll关注事件；失败时记录日志；由调用者安排释放连接
+bool updateConnectionEvents(int epollFd,const TcpConnection& connection){
+    //准备事件结构体
+    epoll_event clientEvent{};
+    clientEvent.data.fd = connection.fd;
+
+    //根据阶段填写关注事件
+    if(connection.phase == ConnectionPhase::Sending){
+        clientEvent.events = EPOLLOUT;
+    }
+    else{
+        clientEvent.events = EPOLLIN;
+    }
+
+    //调用epoll_ctl()修改登记
+    int modifyResult = epoll_ctl(epollFd,EPOLL_CTL_MOD,connection.fd,&clientEvent);
+
+    //处理调用结果
+    if(modifyResult == -1){
+        const int error = errno;
+        LOGGER_ERROR("修改客户端epoll关注事件失败,fd=" + std::to_string(connection.fd) +  ",epollFd="  + std::to_string(epollFd) + ",errno=" + std::to_string(error));
+        return false;
+    }
+    return true;
+}
+
+//根据客户端事件和连接阶段推进收发和清理，统一安排连接释放
+void handleConnectionEvent(int epollFd,std::unordered_map<int,TcpConnection>& connections,const epoll_event& readyEvent){
+    //根据事件中的fd找到连接
+    int clientFd = readyEvent.data.fd;
+    auto it = connections.find(clientFd);
+
+    if(it == connections.end()){
+        return;
+    }
+
+    //找到后再取得连接对象的引用
+    TcpConnection& connection = it->second;
+
+    //先处理EPOLLERR，EPOLLERR是代表"错误事件"的标志，使用&来检查这个标志是否存在
+    if(readyEvent.events & EPOLLERR){
+        LOGGER_WARN("客户端出现epoll错误事件,fd=" + std::to_string(clientFd));
+        removeConnection(epollFd,connections,clientFd);
+        return;
+    }
+
+    //建立三个阶段分支
+    //接收请求
+    if(connection.phase == ConnectionPhase::Receiving){
+        //先检查这次事件是否允许尝试接收
+        //既没有可读事件也没有挂断事件，就结束本次处理
+        if(!(readyEvent.events & (EPOLLIN | EPOLLHUP))){
+            return;
+        }
+
+        //调用接收函数，更新这个连接的请求数据，必要时准备响应
+        ReceiveResult receiveResult = receiveRequest(connection);
+
+        //根据接收结果分别处理
+        if(receiveResult == ReceiveResult::NeedMoreData){
+            return;
+        }
+        if(receiveResult == ReceiveResult::CloseConnection){
+            removeConnection(epollFd,connections,clientFd);
+            return;
+        }
+        //最后结果剩下ResponseReady，切换阶段
+        connection.phase = ConnectionPhase::Sending;
+        //进入发送阶段，初始化等待发送进展的截止时间
+        connection.sendIdleDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        //然后更新关注事件
+        if(!updateConnectionEvents(epollFd,connection)){ //这里！表示修改失败
+            removeConnection(epollFd,connections,clientFd);
+            return;
+        }
+    }
+    //发送响应
+    else if(connection.phase == ConnectionPhase::Sending){
+        //先事件检查,既没有可写通知也没有挂断通知，就不在这里继续尝试
+        if(!(readyEvent.events & (EPOLLOUT | EPOLLHUP))){
+            return;
+        }
+
+        SendResult sendResult = sendResponse(connection);
+
+        if(sendResult == SendResult::CloseConnection){
+            removeConnection(epollFd,connections,clientFd);
+            return;
+        }
+        if(sendResult == SendResult::NeedWrite){
+            //判断是否包含挂断事件
+            if(readyEvent.events & EPOLLHUP){
+                LOGGER_WARN("客户端挂断,停止继续发送,fd=" + std::to_string(connection.fd));
+                removeConnection(epollFd,connections,clientFd);
+                return;
+            }
+            return;
+        }
+        //最后剩下结果SendComplete，表示响应已经全部交给内核发送，可以调用beginDrain(connection)
+        if(!beginDrain(connection)){
+            removeConnection(epollFd, connections, clientFd);
+            return;
+        }
+        if (!updateConnectionEvents(epollFd, connection)) {
+            removeConnection(epollFd, connections, clientFd);
+            return;
+        }
+        return;
+    }
+    //清理剩余数据
+    else if(connection.phase == ConnectionPhase::Draining){
+        //先事件检查
+        if (!(readyEvent.events & (EPOLLIN | EPOLLHUP))) {
+            return;
+        }
+
+        DrainResult drainResult = drainConnection(connection);
+
+        if(drainResult == DrainResult::CloseConnection){
+            removeConnection(epollFd, connections, clientFd);
+            return;
+        }
+    }
+}
+
+int runTcpServer(){
     //socket: Linux提供的系统调用接口，成功返回非负整数，失败返回-1
     //AF_INET: 选择IPv4地址体系
     //SOCK_STREAM: 选择流式通信，此处与IPv4搭配，第三个参数使用0得到TCP socket
@@ -190,38 +355,44 @@ int runTcpServer(ThreadPool& pool){
     const int maxEvents = 16; //设置该次调用最多取回16条就绪记录
     const int maxAcceptPerEvent = 32; //处理一次监听事件时，最多接收的连接个数
     epoll_event readyEvents[maxEvents]{};
+    const int epollWaits = 100;
 
     //按fd保存连接对象的容器,使收发数据和进度能跨越多次事件处理保留
     std::unordered_map<int,TcpConnection>connections;
 
-    //主线程持续接收连接，将客户端收发任务交给线程池
+    //主线程通过epoll接收新连接，并推进客户端收发和清理
     while(true){
         //等待事件,并记录有效事件个数
-        int readyCount = epoll_wait(epollFd,readyEvents,maxEvents,-1); //-1是等待时间参数
+        int readyCount = epoll_wait(epollFd,readyEvents,maxEvents,epollWaits); //epollWaits是等待时间参数,单位是毫秒
 
         if(readyCount == -1){
             const int error = errno;
             const std::error_code ec(error, std::generic_category());
             const std::string reason = ec.message();
             if(error == EINTR){
-                continue;
+                readyCount = 0;
             }
-
-            LOGGER_ERROR("等待epoll事件失败,fd=" + std::to_string(epollFd) + ",errno=" + std::to_string(error) + ",原因=" + reason);
-            close(listenFd);
-            close(epollFd);
-            return 1;
+            else{
+                LOGGER_ERROR("等待epoll事件失败,fd=" + std::to_string(epollFd) + ",errno=" + std::to_string(error) + ",原因=" + reason);
+                removeAllConnections(epollFd, connections);
+                close(listenFd);
+                close(epollFd);
+                return 1;
+            }
         }
         for(int i = 0;i < readyCount;i++){
             //取出这次事件附带的描述符
             int readyFd = readyEvents[i].data.fd;
             if(readyFd != listenFd){
+                //进行客户端事件分发
+                handleConnectionEvent(epollFd,connections,readyEvents[i]);
                 continue;
             }
 
             //检查错误或挂断
             if(readyEvents[i].events & (EPOLLERR | EPOLLHUP)){
                 LOGGER_ERROR("监听socket出现错误或挂断");
+                removeAllConnections(epollFd, connections);
                 close(epollFd);
                 close(listenFd);
                 return 1;
@@ -263,6 +434,7 @@ int runTcpServer(ThreadPool& pool){
                     const std::string reason = ec.message();
                     LOGGER_ERROR("接收客户端连接失败,监听fd=" + std::to_string(listenFd)
                                 + ",errno=" + std::to_string(error) + ",原因=" + reason);
+                    removeAllConnections(epollFd, connections);
                     close(epollFd);
                     close(listenFd);
                     return 1;
@@ -273,23 +445,106 @@ int runTcpServer(ThreadPool& pool){
 
                 LOGGER_INFO("接收客户端连接,fd=" + std::to_string(clientFd));
 
-                //保存函数handle和参数clientFd，交给线程池安排执行
+                //客户端初始化
+                //先设置客户端非阻塞
+                if(!setNonblocking(clientFd)){
+                    close(clientFd);
+                    continue;
+                }
+                //再把客户端登记到epoll
+                epoll_event clientEvent{};
+                clientEvent.events = EPOLLIN;
+                clientEvent.data.fd = clientFd;
+
+                int clientAddResult = epoll_ctl(epollFd,EPOLL_CTL_ADD,clientFd,&clientEvent);
+                if(clientAddResult == -1){
+                    const int error = errno;
+                    LOGGER_WARN("登记客户端到epoll失败,fd=" + std::to_string(clientFd) + ",errno=" + std::to_string(error));
+                    close(clientFd);
+                    continue;
+                }
+                //把客户端状态存入容器，供后续epoll事件找到并继续处理
                 try{
-                    pool.enqueue(handleClient,clientFd);
+                    TcpConnection connection;
+                    connection.fd = clientFd;
+
+                    //时间初始化
+                    const auto now = std::chrono::steady_clock::now();
+                    connection.receiveIdleDeadline = now + std::chrono::seconds(30);
+                    connection.requestDeadline = now + std::chrono::seconds(60);
+
+                    auto insertResult = connections.emplace(clientFd,connection);
+
+                    if(!insertResult.second){
+                        LOGGER_WARN("连接容器出现重复fd");
+                        removeConnection(epollFd,connections,clientFd);
+                        continue;
+                    }
                 }
                 catch(const std::exception& e){
-                    LOGGER_ERROR("提交连接任务失败,关闭连接,fd=" + std::to_string(clientFd)
-                                + "，原因=" + e.what());
+                    LOGGER_ERROR("保存客户端连接失败,fd=" + std::to_string(clientFd) + ",原因=" + e.what());
+                    //取消epoll登记
+                    int removeResult = epoll_ctl(epollFd,EPOLL_CTL_DEL,clientFd,nullptr);
+                    if(removeResult == -1){
+                        const int error = errno;
+                        LOGGER_WARN("取消客户端epoll登记失败,fd=" + std::to_string(clientFd)
+                                    + ",errno=" + std::to_string(error));
+                    }
+
                     close(clientFd);
+                    continue;
                 }
             }
+        }
+        //定期检查接收、发送及清理期限，处理没有新事件的连接
+        //先取得扫描时的当前时间
+        const auto now = std::chrono::steady_clock::now();
+        //接着准备从容器第一个元素开始遍历
+        auto it = connections.begin();
+        while(it != connections.end()){
+            //每轮检查一个连接，先取得当前连接的编号和状态
+            int clientFd = it->first;
+            TcpConnection& connection = it->second;
 
+            //判断是否应该结束清理(处于Draining并且总期限和等待期限至少一个到达时)
+            bool expired = connection.phase == ConnectionPhase::Draining && (now >= connection.drainDeadline
+                                                    || now >= connection.drainIdleDeadline);
+            //removeConnection()：它会取消登记、关闭 fd，并删除容器里的对象，所以先执行++it让迭代器指向下一个元素
+            ++it;
+
+            //定期检查仍在接收请求的连接，超时后决定释放连接，或者安排发送 408。这样客户端一直不发数据，也能被处理。
+            if (connection.phase == ConnectionPhase::Receiving) {
+                ReceiveResult timeoutResult = checkReceiveTimeout(connection);
+
+                if(timeoutResult == ReceiveResult::CloseConnection) {
+                    removeConnection(epollFd, connections, clientFd);
+                    continue;
+                }
+
+                if(timeoutResult == ReceiveResult::ResponseReady){
+                    connection.phase = ConnectionPhase::Sending;
+                    connection.sendIdleDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+                    if (!updateConnectionEvents(epollFd, connection)) {
+                        removeConnection(epollFd, connections, clientFd);
+                        continue;
+                    }
+                }
+
+                continue;
+            }
+
+            //对处于Sending阶段的连接进行定期扫描
+            if(connection.phase == ConnectionPhase::Sending && now >= connection.sendIdleDeadline){
+                LOGGER_WARN("发送等待超时,fd=" + std::to_string(clientFd));
+                removeConnection(epollFd,connections,clientFd);
+                continue;
+            }
+
+            if(expired){
+                LOGGER_INFO("清理期限已到，释放连接,fd=" + std::to_string(clientFd));
+                removeConnection(epollFd,connections,clientFd);
+            }
         }
     }
 
-    //释放socket
-    close(epollFd);
-    close(listenFd);
-
-    return 0;
 }
