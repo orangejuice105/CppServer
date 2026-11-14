@@ -5,6 +5,9 @@
 
 主线程通过事件循环推进连接的接收、发送和清理。日志库使用独立后台线程；线程池源码保留供后续学习，当前服务器没有创建线程池，也不链接线程池库。
 
+当前已实现 1024 个受管理连接的容量限制、SIGINT/SIGTERM 优雅退出，以及不输出查询参数和请求头字段值的简要请求日志。
+2026-11-14 的完整功能验收通过 14 组检查，另完成 16 次独立 Release 性能测量。当前版本定位为可复现、可继续扩展的 Linux 网络编程学习项目。
+
 ## 构建与运行
 
 需要 Linux / WSL、C++17 编译器、CMake 3.13 或更新版本和系统线程库。
@@ -31,13 +34,23 @@ curl --http1.1 -i --max-time 3 'http://127.0.0.1:8080/hello?name=Tom'
 | `/missing` | 404 Not Found | `Not Found` 加换行 | 10 |
 | `/hello?name=Tom` | 200 OK | `Hello,HTTP!` 加换行 | 12 |
 
-在服务器终端按 `Ctrl+C` 停止进程。当前没有优雅退出机制，异步日志队列中尚未写入文件的消息不保证保存。
+在服务器终端按 `Ctrl+C`，或向服务器进程发送 `SIGTERM`，进入优雅退出：
+
+1. 从 epoll 删除监听登记，停止接收新连接。
+2. 继续推进已有连接的接收、发送和清理，最多给予 5 秒等待时间。
+3. 连接提前全部结束时立即收尾；到达期限时记录剩余数量并主动关闭，再释放监听、epoll 和信号 fd。
+4. 正常退出经过日志库析构，等待后台线程处理剩余日志并关闭文件。
+
+重复退出信号不会延长 5 秒期限。该期限约束已有连接的等待阶段，事件循环扫描、线程调度和日志收尾会影响最终退出时间。
+等待期间监听 socket 尚未关闭，客户端的 TCP 握手仍可能成功，但新连接不会进入应用处理流程。
 
 ## 事件循环和连接状态
 
 ```mermaid
 flowchart LR
-    A[accept 新连接] --> B[非阻塞设置和 epoll 登记]
+    A[accept 新连接] --> L{受管理连接少于 1024?}
+    L -->|是| B[非阻塞设置和 epoll 登记]
+    L -->|否| R[累计容量拒绝数并关闭新连接]
     B --> C[Receiving 接收请求头]
     C -->|响应准备好| D[Sending 发送响应]
     D -->|响应全部交给内核| E[Draining 清理剩余输入]
@@ -51,6 +64,8 @@ flowchart LR
 - 接收阶段关注 `EPOLLIN`；发送阶段关注 `EPOLLOUT`，部分发送后从 `sentBytes` 继续；清理阶段重新关注 `EPOLLIN`。
 - `EAGAIN/EWOULDBLOCK` 表示暂时没有进展，交还事件循环；`EINTR` 重试时仍检查期限。
 - 事件循环在处理本批事件后扫描期限，使没有新事件的连接也能结束等待。严重错误退出前，先释放全部已管理的客户端，再关闭监听和 epoll。
+- `main()` 在创建日志线程前屏蔽 SIGINT/SIGTERM，再创建非阻塞 signalfd 并交给事件循环监听。退出请求以可读事件进入同一条事件处理路径。
+- 停止状态只设置一次退出截止时间。等待期间已有客户端继续按 Receiving、Sending、Draining 三个阶段处理。
 
 ## 默认配置
 
@@ -58,6 +73,9 @@ flowchart LR
 | --- | --- | --- |
 | 监听地址 | `127.0.0.1:8080` | `src/tcp_server.cpp` |
 | listen 等待队列参数 | 5；不是已接收连接总数限制 | `src/tcp_server.cpp` |
+| 应用层连接容量 | 1024；包含 Receiving、Sending 和 Draining | `src/tcp_server.cpp` |
+| 容量拒绝日志 | 第 1 次及累计每 100 次记录 WARN | `src/tcp_server.cpp` |
+| 优雅退出等待期限 | 第一次退出信号起 5 秒；重复信号不延长 | `src/tcp_server.cpp` |
 | 单次最多取回的就绪事件 | 16 | `src/tcp_server.cpp` |
 | 单次监听事件最多 accept | 32 | `src/tcp_server.cpp` |
 | epoll_wait 最长等待 | 100 ms | `src/tcp_server.cpp` |
@@ -70,10 +88,13 @@ flowchart LR
 | 请求目标上限 | 4096 字节，包含查询参数 | `src/tcp_connection.cpp` |
 | 请求正文长度上限 | 0 | `src/tcp_connection.cpp` |
 | 日志最低级别 | INFO | `src/main.cpp` |
+| 日志共享队列容量 / 批大小 | 10000 条 / 100 条 | `include/logger.h` |
+| 日志滚动 | 单文件 10 MiB，最多 3 个归档文件 | `include/logger.h` |
 
 所有期限使用 `steady_clock`。当前通过扫描检查期限，处理时刻会受到线程调度和当前批次处理耗时影响。
 60 秒仅限制请求头接收阶段；发送和清理使用各自的期限，没有覆盖接收至响应完成全过程的统一总时限。
-当前没有应用层已接收连接总数上限，旧线程池队列容量不再参与连接管理。
+应用层容量检查发生在 accept 成功后、客户端登记和保存之前。满额时立即关闭新 fd；旧线程池队列容量不参与连接管理。
+地址、端口、backlog、容量和各项期限目前仍是源码中的默认值，尚无命令行或配置文件入口。
 
 ## HTTP 行为
 
@@ -91,7 +112,7 @@ flowchart LR
 - 响应模块生成状态行、Date、Content-Type、Content-Length 和 `Connection: close`。正文长度按字节计算，Date 为英文 UTC 日期，生成失败时省略。
 - 非阻塞发送处理部分发送、EINTR、EAGAIN 和等待超时，使用 `MSG_NOSIGNAL`。发送超时直接释放连接，不在已发送的响应后追加新错误响应。
 - 响应发完后先 `shutdown(SHUT_WR)`，再有界清理剩余输入，最后关闭连接。达到清理预算时可能出现 TCP RST，不保证任意过量输入都以 FIN 结束。
-- 日志记录启动、连接、请求和错误，系统调用失败后保存对应 errno；支持异步写入和按大小滚动。
+- 日志记录启动、连接、请求和错误，系统调用失败后保存对应 errno；支持异步写入和按大小滚动。正常请求摘要包含方法、去掉查询参数的路径、版本和 fd，不输出完整请求目标或请求头字段值。
 
 ## 重复运行验收
 
@@ -101,7 +122,9 @@ flowchart LR
 python3 tests/run_epoll_checks.py --report tests/reports/epoll-latest.json
 ```
 
-默认在独立临时目录重新构建，开启 `_GLIBCXX_ASSERTIONS` 和 UBSan，运行全部 11 组检查。
+容量组需要同时持有 1024 个客户端及额外描述符，建议测试进程的 fd 软上限至少为 2048。可用 `ulimit -Sn`、`ulimit -Hn` 查看软硬上限；测试服务器会继承该限制。
+
+默认在独立临时目录重新构建，开启 `_GLIBCXX_ASSERTIONS` 和 UBSan，运行全部 14 组检查。
 30 秒接收、发送空闲期限和 60 秒请求头总期限均真实等待，超时分组并行执行。
 测试使用临时回环端口，不要求停止用户在 8080 上的服务，只关闭测试自己创建的连接和进程。
 
@@ -110,14 +133,38 @@ python3 tests/run_epoll_checks.py --skip-timeouts
 python3 tests/run_epoll_checks.py --only concurrency
 ```
 
-跳过超时或只选部分分组时不算完整验收。覆盖范围、故障注入和大响应测试的具体边界见 [tests/README.md](tests/README.md)，最新完整验收记录见 [tests/EPOLL_BASELINE.md](tests/EPOLL_BASELINE.md)。
+跳过超时或只选部分分组时不算完整验收。原有 122 项 HTTP 字节用例之外，当前验收还覆盖连接容量、敏感日志、真实信号退出和重复信号等场景。
+覆盖范围、故障注入和大响应测试的具体边界见 [tests/README.md](tests/README.md)，当前完整验收记录见 [tests/HARDENING_BASELINE.md](tests/HARDENING_BASELINE.md)，原始结果见 [功能报告](tests/reports/epoll-hardening-2026-11-14.json)。
+
+## 本机性能基线
+
+```bash
+python3 tests/run_epoll_benchmark.py --report tests/reports/epoll-performance-latest.json
+```
+
+脚本独立构建 Release 版本，对 `/health`、`/hello` 运行 1、16、64 并发短连接，并补充等待连接和满容量场景。默认每次预热 0.5 秒、发压 3 秒、重复两次；保留 INFO 异步文件日志及生产收发策略。
+
+2026-11-14 在 AMD Ryzen 9 7940HX 的 Linux / WSL 回环网络上测得：
+
+| 场景 | 并发请求数 | 两次成功 QPS 范围 | 两次 p99 延迟范围 |
+| --- | ---: | ---: | ---: |
+| `/health` | 64 | 4269～4293 | 9.60～11.84 ms |
+| `/hello` | 64 | 4138～4235 | 11.39～11.86 ms |
+| 256 个等待连接下请求 `/health` | 64 | 4092～4346 | 11.57～11.93 ms |
+
+正常测量共校验 185314 个完整响应，请求错误为 0。全部 16 次测量的日志丢弃数均为 0；各场景结束后 fd 恢复基线。
+1024 个名额已满的两次测量均按预期拒绝新请求，拒绝不计入成功 QPS；释放名额后健康请求恢复正常。
+
+延迟包含建连、完整响应、服务器 FIN 和本地连接清理，吞吐量也计入最后一批在途请求完成所需的时间。
+客户端与服务器同机运行，Python asyncio 发压端及当前 backlog 可能限制负载。这是短时本机基线，尚未测出服务器极限或验证长期生产容量。
+完整参数、CPU/RSS/fd、日志统计和源码哈希见 [性能记录](tests/PERFORMANCE_BASELINE.md) 及 [原始报告](tests/reports/epoll-performance-2026-11-14.json)。
 
 ## 模块结构
 
 | 模块 | 职责 |
 | --- | --- |
-| `src/main.cpp` | 初始化日志，调用服务器入口 |
-| `include/tcp_server.h`、`src/tcp_server.cpp` | 监听、epoll 登记与分发、连接容器、期限扫描和最终资源释放 |
+| `src/main.cpp` | 准备退出信号、初始化日志、创建并持有 signalfd，调用服务器入口 |
+| `include/tcp_server.h`、`src/tcp_server.cpp` | 监听、epoll 登记与分发、连接容量、期限扫描、优雅退出和最终资源释放 |
 | `include/tcp_connection.h`、`src/tcp_connection.cpp` | 连接状态、非阻塞收发、请求处理、期限检查和有界清理 |
 | `include/http_request.h`、`src/http_request.cpp` | 请求行和字段解析、Host、长度及传输编码校验 |
 | `include/http_router.h`、`src/http_router.cpp` | 方法与路径选择 |
@@ -125,6 +172,9 @@ python3 tests/run_epoll_checks.py --only concurrency
 | `include/logger.h`、`src/logger.cpp` | 异步日志及文件滚动 |
 | `include/thread_pool.h`、`src/thread_pool.cpp` | 保留的线程池库；当前网络入口未使用 |
 | `tests/run_epoll_checks.py`、`tests/http_test_support.py` | 当前验收入口及共享收发、响应断言工具 |
+| `tests/epoll_hardening_checks.py` | 容量、日志隐私和优雅退出检查 |
+| `tests/run_epoll_benchmark.py` | Release 短连接性能测试、资源统计及环境记录 |
+| `tests/logger_stats_probe.cpp` | 测试时在生产事件循环返回后导出日志统计 |
 | `tests/http_cases.json` | 122 个原始 HTTP 字节用例及预期响应 |
 | `tests/epoll_*.cpp`、`tests/socket_test_shim.cpp` | 默认关闭的测试探针、端口映射及显式故障注入 |
 | `tests/history/` | 旧 Echo、请求头接收及阻塞式 HTTP 测试归档 |
@@ -149,9 +199,20 @@ tail -n 30 server.log
 若先进入 `build` 再执行 `./main`，则查看 `build/server.log`。
 日志附带时间、级别、线程编号和源码位置；fd 会被复用，不能作为永久连接身份。
 日志库初始化失败输出到终端，日志队列满时会丢弃新消息。
+当前请求摘要示例：
+
+```text
+方法=GET,路径=/hello,版本=HTTP/1.1,fd=7
+```
+
+响应状态码、请求耗时及稳定的连接编号尚未加入统一访问日志；日志丢弃计数和队列峰值目前由性能测试探针导出，主程序尚未定期报告。
 
 ## 阶段范围
 
-当前 LT epoll 版本提供 GET 文本服务、错误处理、连接期限和可重复验收。
-未实现非零长度请求正文、chunked 解码、成功的 HEAD、keep-alive、pipelining、静态文件服务、优雅退出或长期压力测试。
+当前 LT epoll 版本提供 GET 文本服务、错误处理、连接期限、应用层连接容量、优雅退出和可重复的功能及性能测试。
+未实现非零长度请求正文、chunked 解码、成功的 HEAD、keep-alive、pipelining、静态文件服务、TLS 或长期压力测试。
 ET 模式、更完整的 Reactor 封装以及把耗时业务交给线程池，留作后续学习阶段。
+
+当前 accept 错误处理只单独区分 EINTR、EAGAIN/EWOULDBLOCK；连接被中止、其他网络错误及 EMFILE/ENFILE 等资源不足仍会进入服务器级退出路径。应用层 1024 容量限制不能替代操作系统 fd 上限检查，也尚无资源不足时的退避和恢复机制。
+
+后续工程改进重点包括 accept 错误分级与资源不足时的恢复策略、集中配置、访问日志补全，以及用 RAII 简化描述符所有权和错误清理。
