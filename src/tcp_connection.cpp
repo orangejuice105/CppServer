@@ -78,17 +78,19 @@ std::string processHttpRequest(const std::string& requestHead, int clientFd) {
         body = "Bad Request\n";
     }
     else{
-        //观察
-        for (const HttpHeader& header : httpRequest.headers) {
-            LOGGER_INFO("请求头:" + header.name + "=" + header.value);
+        //取出不含查询参数的路径
+        std::size_t queryPos = httpRequest.pathAndQuery.find('?');
+        std::string logPath = httpRequest.pathAndQuery.substr(0,queryPos);
+
+        //处理没有适用路径的情况
+        if(logPath.empty()){
+            logPath = "-"; //日志里的 - 表示“没有适用的路径”，方便阅读
         }
-
+        //记录简要请求信息，不输出请求头字段值和查询参数
         LOGGER_INFO("方法=" + httpRequest.method
-                + ",目标=" + httpRequest.target
-                + ",版本=" + httpRequest.version);
-        LOGGER_INFO("目标主机与端口=" + httpRequest.authority
-                    + ",路径与查询=" + httpRequest.pathAndQuery);
-
+                    + ",路径=" + logPath
+                    + ",版本=" + httpRequest.version
+                    + ",fd=" + std::to_string(clientFd));
 
         //检查有没有Transfer-Encoding字段
         const bool hasTransferEncoding = hasRequestHeader(httpRequest, "transfer-encoding");

@@ -1,5 +1,7 @@
 # LT epoll HTTP 最终验收记录
 
+本文件保留 2026-11-09 基础 epoll 阶段的历史结果。新增连接容量、日志和优雅退出后的当前完整验收见 [HARDENING_BASELINE.md](HARDENING_BASELINE.md)，本机性能结果见 [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)。下文的 11 组通过记录仅对应当时的源码。
+
 最终清理后复验：2026-11-09（Asia/Shanghai）。清理后的源码及新构建二进制完成全部 11 组检查，未沿用清理前或阻塞式版本的通过结果。
 
 最新报告：[reports/epoll-final-2026-11-09.json](reports/epoll-final-2026-11-09.json)，`full_acceptance=true`。清理前报告 [epoll-2026-11-09.json](reports/epoll-2026-11-09.json) 仅记录此前源码快照。

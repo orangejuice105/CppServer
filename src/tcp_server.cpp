@@ -14,6 +14,41 @@
 #include <fcntl.h>
 #include <unordered_map>
 #include <chrono>
+#include <cstddef>
+#include <sys/signalfd.h>
+
+bool prepareShutdownSignals(sigset_t& signals){
+    //准备空集合，sigemptyset: 将集合设置为空
+    int setEmptyResult = sigemptyset(&signals);
+
+    if(setEmptyResult == -1){
+        //该函数在日志库初始化前调用，所以直接返回
+        return false;
+    }
+
+    //把交互式中断和服务终止信号加入集合
+    int addResult = sigaddset(&signals,SIGINT); //SIGINT: 终端产生的中断请求
+    if(addResult == -1){ 
+        return false;
+    }
+
+    addResult = sigaddset(&signals,SIGTERM); //SIGTERM: 通常表示kill-TERM或服务管理器发出的终止请求
+    if(addResult == -1){
+        return false;
+    }
+
+    //两次sigaddset()成功后: signals = {SIGINT,SIGTERM}
+
+    //将两个信号加入信号掩码中，pthread_sigmask(): 操作当前调用线程的信号掩码
+    int maskResult = pthread_sigmask(SIG_BLOCK,&signals,nullptr);
+    //失败时返回错误编号而不是-1
+    if(maskResult != 0){
+        errno = maskResult; //把错误编号放入errno，让调用者统一通过errno获取失败原因
+        return false;
+    }
+
+    return true;
+}
 
 //保留原有文件状态标志并开启非阻塞；失败时记录日志
 bool setNonblocking(int fd){
@@ -207,7 +242,7 @@ void handleConnectionEvent(int epollFd,std::unordered_map<int,TcpConnection>& co
     }
 }
 
-int runTcpServer(){
+int runTcpServer(int shutdownFd){
     //socket: Linux提供的系统调用接口，成功返回非负整数，失败返回-1
     //AF_INET: 选择IPv4地址体系
     //SOCK_STREAM: 选择流式通信，此处与IPv4搭配，第三个参数使用0得到TCP socket
@@ -347,6 +382,32 @@ int runTcpServer(){
         return 1;
     }
 
+    //shutdownFd登记
+    epoll_event shutdownEvent{};
+    shutdownEvent.events = EPOLLIN;
+    shutdownEvent.data.fd = shutdownFd;
+
+    int shutdownAddResult = epoll_ctl(epollFd, EPOLL_CTL_ADD, shutdownFd, &shutdownEvent);
+
+    if (shutdownAddResult == -1) {
+        const int error = errno;
+        const std::error_code ec(error, std::generic_category());
+        LOGGER_ERROR(
+            "登记退出信号fd到epoll失败,fd="
+            + std::to_string(shutdownFd)
+            + ",epollFd="
+            + std::to_string(epollFd)
+            + ",errno="
+            + std::to_string(error)
+            + ",原因="
+            + ec.message()
+        );
+
+        close(epollFd);
+        close(listenFd);
+        return 1;
+    }
+
     std::cout << "开始监听,等待客户端连接" << std::endl;
 
     LOGGER_INFO("服务器开始监听 127.0.0.1:8080");
@@ -354,11 +415,18 @@ int runTcpServer(){
     //创建数组保存epoll_wait()返回的事件
     const int maxEvents = 16; //设置该次调用最多取回16条就绪记录
     const int maxAcceptPerEvent = 32; //处理一次监听事件时，最多接收的连接个数
+    //constexpr: 表示这个值在编译时确定，之后不能修改
+    constexpr std::size_t maxConnections = 1024; //应用层最多同时保存的连接对象数，覆盖接收、发送和清理阶段
     epoll_event readyEvents[maxEvents]{};
     const int epollWaits = 100;
 
     //按fd保存连接对象的容器,使收发数据和进度能跨越多次事件处理保留
     std::unordered_map<int,TcpConnection>connections;
+    //增加拒绝计数，统计因为应用层连接容量已满而被拒绝的连接
+    std::size_t capacityRejectedConnectionCount = 0;
+
+    bool stopping = false; //整个服务器的状态，false为正常运行，true为收到退出请求，只继续处理已有连接
+    std::chrono::steady_clock::time_point shutdownDeadline{}; //保存退出的截止时间
 
     //主线程通过epoll接收新连接，并推进客户端收发和清理
     while(true){
@@ -383,9 +451,80 @@ int runTcpServer(){
         for(int i = 0;i < readyCount;i++){
             //取出这次事件附带的描述符
             int readyFd = readyEvents[i].data.fd;
+
+            //先判断是否收到了退出信号
+            if(readyFd == shutdownFd){
+                //读取信号信息
+                signalfd_siginfo signalInfo{}; //准备接收信号信息的对象
+                ssize_t readResult = read(shutdownFd,&signalInfo,sizeof(signalInfo));
+
+                if(readResult == -1){
+                    const int error = errno;
+                    if(error == EINTR){
+                        continue;
+                    }
+
+                    else if(error == EAGAIN || error == EWOULDBLOCK){
+                        LOGGER_WARN("通知与读取之间状态发生变化,暂时没有数据,fd=" 
+                                    + std::to_string(shutdownFd) + ",errno=" + std::to_string(error));
+                        continue;
+                    }
+                    else{
+                        LOGGER_ERROR("读取退出信号失败,fd=" + std::to_string(shutdownFd) + ",errno=" + std::to_string(error));
+                        removeAllConnections(epollFd,connections);
+                        close(listenFd);
+                        close(epollFd);
+                        return 1;
+                    }
+                }
+
+                //判断本次读到的字节数是否刚好足够填写一个完整的signalInfo
+                //signalfd按完整的信号记录提供数据，只有读取到一个完整记录，才进入正常退出路径
+                if(readResult != static_cast<ssize_t>(sizeof(signalInfo))){
+                    LOGGER_ERROR("退出信号读取长度异常,实际="
+                                + std::to_string(readResult)
+                                + ",预期=" + std::to_string(sizeof(signalInfo)));
+                    removeAllConnections(epollFd,connections);
+                    close(listenFd);
+                    close(epollFd);
+                    return 1;
+                }
+
+                ////完整读取信号后，记录本次退出原因
+                LOGGER_INFO("收到服务器退出请求,signal=" + std::to_string(signalInfo.ssi_signo)); //signalInfo.ssi_signo: 这次读到的信号编号
+
+                //第一次收到退出请求时才进行状态切换
+                if(!stopping){
+                    //取消epoll登记的监听fd
+                    int removeListenResult = epoll_ctl(epollFd,EPOLL_CTL_DEL,listenFd,nullptr);
+
+                    if(removeListenResult == -1){
+                        const int error = errno;
+                        LOGGER_ERROR("取消监听socket的epoll登记失败,errno=" + std::to_string(error));
+                        removeAllConnections(epollFd,connections);
+                        close(listenFd);
+                        close(epollFd);
+                        return 1;
+                    }
+
+                    //取消登记成功后
+                    stopping = true;
+
+                    //设置退出截止时间为5秒后
+                    shutdownDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+                }
+                //结束本次信号事件处理，让事件循环继续处理其他客户
+                continue;
+            }
+
             if(readyFd != listenFd){
                 //进行客户端事件分发
                 handleConnectionEvent(epollFd,connections,readyEvents[i]);
+                continue;
+            }
+
+            //服务器正在停止时，跳过这条监听事件，不再调用accept
+            if(stopping){
                 continue;
             }
 
@@ -442,6 +581,21 @@ int runTcpServer(){
 
                 //成功接收后，计数加一
                 acceptedCount++;
+
+                //检查现有连接是否已达到容量上限，满额时不再接收新连接进入管理流程
+                //若连接已达到上限：关闭尚未登记和保存的fd，避免继续占用资源
+                if(connections.size() >= maxConnections){
+                    capacityRejectedConnectionCount++;
+                    
+                    //限频记录日志，只在第一次以及累计次数是100的整数倍时记录日志
+                    if(capacityRejectedConnectionCount == 1 || capacityRejectedConnectionCount % 100 == 0){
+                        LOGGER_WARN("连接数达到应用层上限,current=" + std::to_string(maxConnections) + ",rejected = " + std::to_string(capacityRejectedConnectionCount) + ",fd = " + std::to_string(clientFd));
+                    }
+
+                    close(clientFd);
+
+                    continue;
+                }
 
                 LOGGER_INFO("接收客户端连接,fd=" + std::to_string(clientFd));
 
@@ -544,6 +698,19 @@ int runTcpServer(){
                 LOGGER_INFO("清理期限已到，释放连接,fd=" + std::to_string(clientFd));
                 removeConnection(epollFd,connections,clientFd);
             }
+        }
+        //已经给过这些客户端等待时间，但它们仍未结束时主动关闭
+        if(stopping && !connections.empty() && std::chrono::steady_clock::now() >= shutdownDeadline){
+            LOGGER_WARN("优雅退出等待超时，关闭剩余连接,remaining="
+                        + std::to_string(connections.size()));
+            removeAllConnections(epollFd, connections);
+        }
+
+        //已有连接全部结束时，服务器才返回
+        if(stopping && connections.empty()){
+            close(listenFd);
+            close(epollFd);
+            return 0;
         }
     }
 

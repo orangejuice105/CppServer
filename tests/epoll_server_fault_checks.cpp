@@ -4,6 +4,7 @@
 #include "logger.h"
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/signalfd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -31,7 +32,7 @@ std::string mode;
 std::atomic<unsigned short> port{0};
 std::atomic<bool> finished{false};
 std::atomic<bool> clientFailure{false};
-int listener = -1, poller = -1;
+int listener = -1, poller = -1, shutdownDescriptor = -1;
 std::vector<int> registered, deleted, closed;
 bool triggered = false, badOrder = false, deleteFault = false, closeFault = false;
 int closeAttempts = 0;
@@ -86,7 +87,8 @@ extern "C" int __wrap_epoll_ctl(int epfd, int op, int fd, epoll_event* event) {
         }
     }
     int result = __real_epoll_ctl(epfd, op, fd, event);
-    if (result == 0 && op == EPOLL_CTL_ADD && fd != listener) registered.push_back(fd);
+    if (result == 0 && op == EPOLL_CTL_ADD && fd != listener && fd != shutdownDescriptor)
+        registered.push_back(fd);
     return result;
 }
 extern "C" int __wrap_accept(int fd, sockaddr* address, socklen_t* length) {
@@ -126,8 +128,13 @@ int main(int argc, char** argv) {
     alarm(12);
     if (argc != 3) return 2;
     mode = argv[1];
+    // Match production startup: block signals before either background thread exists.
+    sigset_t signals;
+    if (!prepareShutdownSignals(signals)) return 4;
     LoggerConfig config; config.filePath = argv[2];
     if (!Logger::getInstance().init(config)) return 3;
+    shutdownDescriptor = signalfd(-1, &signals, SFD_NONBLOCK | SFD_CLOEXEC);
+    if (shutdownDescriptor < 0) return 5;
     try {
         if (mode == "empty") {
             int epfd = epoll_create1(0);
@@ -140,7 +147,7 @@ int main(int argc, char** argv) {
             __real_close(epfd);
         } else {
             std::thread worker(clients);
-            int result = runTcpServer();
+            int result = runTcpServer(shutdownDescriptor);
             finished = true;
             worker.join();
             require(!clientFailure.load(), "client connection setup failed");
@@ -155,10 +162,14 @@ int main(int argc, char** argv) {
             if (mode == "delete-failure") require(deleteFault, "DEL fault not injected");
             if (mode == "close-eintr") require(closeFault, "close EINTR not injected");
         }
+        require(!isClosed(shutdownDescriptor), "server closed the caller-owned signal fd");
+        require(__real_close(shutdownDescriptor) == 0, "signal fd cleanup failed");
+        require(isClosed(shutdownDescriptor), "signal fd remained open");
         std::cout << "PASS " << mode << " clients=" << registered.size() << " returned_without_open_fds=true\n";
         return 0;
     } catch (const std::exception& error) {
         finished = true;
+        __real_close(shutdownDescriptor);
         std::cerr << "FAIL " << mode << ": " << error.what() << '\n';
         return 1;
     }

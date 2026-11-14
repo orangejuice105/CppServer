@@ -4,15 +4,27 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/signalfd.h>
 #include <unistd.h>
 
 namespace {
+int signalDescriptor = -1;
+std::atomic<unsigned long long> acceptedCount{0};
+void saveAcceptedCount() {
+    const char* path = std::getenv("CPP_EPOLL_TEST_ACCEPT_COUNT");
+    if (!path) return;
+    char buffer[64];
+    const int size = std::snprintf(buffer, sizeof(buffer), "%llu\n", acceptedCount.load());
+    const int fd = open(path, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+    if (fd >= 0) { (void)write(fd, buffer, static_cast<size_t>(size)); close(fd); }
+}
 bool enabled(const char* name) {
     const char* value = std::getenv(name);
     return value && std::strcmp(value, "1") == 0;
@@ -30,6 +42,38 @@ void trace(const char* message) {
     }
     errno = saved;
 }
+}
+
+extern "C" int signalfd(int fd, const sigset_t* mask, int flags) {
+    using Function = int (*)(int, const sigset_t*, int);
+    static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "signalfd"));
+    const int result = real(fd, mask, flags);
+    if (result >= 0) signalDescriptor = result;
+    return result;
+}
+
+// Only the signal descriptor is affected; ordinary files and network IO pass through.
+extern "C" ssize_t read(int fd, void* buffer, size_t length) {
+    using Function = ssize_t (*)(int, void*, size_t);
+    static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "read"));
+    static bool injected = false;
+    if (fd == signalDescriptor && !injected) {
+        const char* mode = std::getenv("CPP_EPOLL_TEST_SIGNAL_READ");
+        if (mode) {
+            injected = true;
+            if (std::strcmp(mode, "short") == 0) {
+                const auto result = real(fd, buffer, length);
+                trace("SIGNAL_READ_SHORT\n");
+                return result > 0 ? result - 1 : result;
+            }
+            const int error = std::strcmp(mode, "eintr") == 0 ? EINTR :
+                              std::strcmp(mode, "again") == 0 ? EAGAIN : EIO;
+            trace("SIGNAL_READ_FAULT\n");
+            errno = error;
+            return -1;
+        }
+    }
+    return real(fd, buffer, length);
 }
 
 // HTTP 验收专用：仅在测试进程中把回环地址的 8080 映射到临时端口。
@@ -57,6 +101,10 @@ extern "C" int bind(int fd, const sockaddr* address, socklen_t length) {
 extern "C" int accept(int fd, sockaddr* address, socklen_t* length) {
     using Function = int (*)(int, sockaddr*, socklen_t*);
     static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "accept"));
+    static const bool countEnabled = [] {
+        if (!std::getenv("CPP_EPOLL_TEST_ACCEPT_COUNT")) return false;
+        return std::atexit(saveAcceptedCount) == 0;
+    }();
     static std::atomic<bool> injected{false};
     if (enabled("CPP_TCP_TEST_EINTR") && !injected.exchange(true)) {
         trace("ACCEPT_EINTR\n");
@@ -64,6 +112,7 @@ extern "C" int accept(int fd, sockaddr* address, socklen_t* length) {
         return -1;
     }
     const int client = real(fd, address, length);
+    if (client >= 0 && countEnabled) ++acceptedCount;
     if (client >= 0 && enabled("CPP_TCP_TEST_SMALL_SNDBUF")) {
         const int size = 4096;
         if (setsockopt(client, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) == 0) {
@@ -137,7 +186,19 @@ extern "C" int epoll_ctl(int fd, int operation, int client, epoll_event* event) 
     static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "epoll_ctl"));
     static int listener = -1;
     static bool addFailed = false, modFailed = false, delFailed = false;
-    if (client != listener && listener >= 0) {
+    if (client == signalDescriptor && operation == EPOLL_CTL_ADD &&
+        enabled("CPP_EPOLL_TEST_SIGNAL_ADD_FAIL")) {
+        trace("SIGNAL_ADD_FAIL\n");
+        errno = ENOMEM;
+        return -1;
+    }
+    if (client == listener && operation == EPOLL_CTL_DEL &&
+        enabled("CPP_EPOLL_TEST_LISTENER_DEL_FAIL")) {
+        trace("LISTENER_DEL_FAIL\n");
+        errno = EIO;
+        return -1;
+    }
+    if (client != listener && client != signalDescriptor && listener >= 0) {
         if (operation == EPOLL_CTL_ADD && enabled("CPP_EPOLL_TEST_ADD_FAIL") && !addFailed) {
             addFailed = true;
             trace("CLIENT_ADD_FAIL\n");

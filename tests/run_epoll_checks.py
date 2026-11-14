@@ -23,10 +23,12 @@ sys.dont_write_bytecode = True
 # Shared utilities contain transport and response assertions only.
 from http_test_support import (Server as TestServer, read_all, parse_response,
                              expected_response, request, require, wait_until, PREFIX, SUFFIX)
+from epoll_hardening_checks import check_capacity, check_request_logging, check_graceful_shutdown
 
 PROJECT = Path(__file__).resolve().parents[1]
 GROUPS = ('regression', 'helpers', 'lifecycle', 'concurrency', 'faults', 'draining',
-          'oversize', 'fatal-cleanup', 'receive-timeout', 'request-deadline', 'send-timeout')
+          'oversize', 'fatal-cleanup', 'capacity', 'request-logging', 'graceful-shutdown',
+          'receive-timeout', 'request-deadline', 'send-timeout')
 TIMEOUTS = ('receive-timeout', 'request-deadline', 'send-timeout')
 
 
@@ -81,6 +83,15 @@ class Suite:
         self.command(['cmake', '--build', self.build, '-j', '4'], 'build')
         self.command(['g++', '-std=c++17', '-Wall', '-Wextra', '-Wpedantic', '-shared',
                       '-fPIC', '-pthread', PROJECT/'tests/socket_test_shim.cpp', '-ldl', '-o', self.shim], 'shim')
+
+    def capacity(self):
+        return check_capacity(self, Server)
+
+    def request_logging(self):
+        return check_request_logging(self, Server)
+
+    def graceful_shutdown(self):
+        return check_graceful_shutdown(self, Server)
 
     def regression(self):
         cases = json.loads((PROJECT/'tests/http_cases.json').read_text())['cases']
@@ -409,7 +420,8 @@ def main():
     report=dict(started_at=datetime.now(timezone.utc).isoformat(),artifacts=str(root),selected_groups=groups,
                 source_before=source_hashes(),results=[],fatal=None,
                 configuration=dict(mode='nonblocking LT epoll',receive_idle_seconds=30,send_idle_seconds=30,request_head_seconds=60,
-                                   drain_total_seconds=1,drain_idle_milliseconds=100,drain_max_bytes=65536),
+                                   drain_total_seconds=1,drain_idle_milliseconds=100,drain_max_bytes=65536,
+                                   max_connections=1024,shutdown_grace_seconds=5),
                 isolation='Fresh CMake build with assertions/UBSan; only test child bind is redirected to temporary loopback ports. Original deadlines unchanged; owned processes only. Explicit injected faults and enlarged response fixture are recorded per group.')
     def run_group(name):
         print('RUN',name,flush=True); begin=time.monotonic(); item=dict(name=name,passed=False)
@@ -421,7 +433,7 @@ def main():
     print('ARTIFACTS',root,flush=True)
     try:
         suite.prepare();report['fresh_build']='passed with _GLIBCXX_ASSERTIONS and undefined-behavior sanitizer'
-        binaries=[suite.binary,suite.build/'epoll_connection_checks',suite.build/'epoll_send_checks',suite.build/'epoll_server_fault_checks',suite.build/'epoll_response_fixture']
+        binaries=[suite.binary,suite.build/'epoll_connection_checks',suite.build/'epoll_send_checks',suite.build/'epoll_server_fault_checks',suite.build/'epoll_response_fixture',suite.build/'epoll_observed_server']
         report['binary_sha256']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in binaries}
         for name in groups:
             if name not in TIMEOUTS:run_group(name)

@@ -61,8 +61,10 @@ if(CPPSERVER_BUILD_EPOLL_TEST_TOOLS)
     # 仅测试时把指定响应扩大；沿用真实入口、收发函数及事件循环。
     add_executable(epoll_response_fixture
         src/main.cpp tests/epoll_response_fixture.cpp)
+    # 仅在生产事件循环返回后导出日志统计，供性能测试检查日志丢弃情况。
+    add_executable(epoll_observed_server src/main.cpp tests/logger_stats_probe.cpp)
     foreach(test_target IN ITEMS epoll_connection_checks epoll_send_checks
-            epoll_server_fault_checks epoll_response_fixture)
+            epoll_server_fault_checks epoll_response_fixture epoll_observed_server)
         target_link_libraries(${test_target} PRIVATE epoll_test_core)
         target_compile_options(${test_target} PRIVATE -Wall -Wextra -Wpedantic)
     endforeach()
@@ -74,4 +76,5 @@ if(CPPSERVER_BUILD_EPOLL_TEST_TOOLS)
     target_link_options(epoll_response_fixture PRIVATE
         -Wl,--wrap=_Z14receiveRequestR13TcpConnection
         -Wl,--wrap=accept -Wl,--wrap=send)
+    target_link_options(epoll_observed_server PRIVATE -Wl,--wrap=_Z12runTcpServeri)
 endif()
