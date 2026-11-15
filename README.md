@@ -6,7 +6,8 @@
 主线程通过事件循环推进连接的接收、发送和清理。日志库使用独立后台线程；线程池源码保留供后续学习，当前服务器没有创建线程池，也不链接线程池库。
 
 当前已实现 1024 个受管理连接的容量限制、SIGINT/SIGTERM 优雅退出，以及不输出查询参数和请求头字段值的简要请求日志。
-2026-11-14 的完整功能验收通过 14 组检查，另完成 16 次独立 Release 性能测量。当前版本定位为可复现、可继续扩展的 Linux 网络编程学习项目。
+accept 支持连接/网络错误分类，以及 EMFILE/ENFILE 下的暂停接收和定时重试；日志时间转换失败时保留正文并使用 `time-unavailable` 占位。
+2026-11-15 的完整功能验收通过 16 组检查，覆盖 accept 恢复和日志时间转换失败，另完成 16 次独立 Release 性能测量。当前版本定位为可复现、可继续扩展的 Linux 网络编程学习项目。
 
 ## 构建与运行
 
@@ -63,6 +64,7 @@ flowchart LR
 - `connections` 按 fd 保存请求、响应、发送进度、阶段及截止时间，供后续事件继续处理。
 - 接收阶段关注 `EPOLLIN`；发送阶段关注 `EPOLLOUT`，部分发送后从 `sentBytes` 继续；清理阶段重新关注 `EPOLLIN`。
 - `EAGAIN/EWOULDBLOCK` 表示暂时没有进展，交还事件循环；`EINTR` 重试时仍检查期限。
+- accept 的连接/网络错误记录警告并结束本轮接收；EMFILE/ENFILE 时删除监听登记，一秒后尝试重新登记。暂停期间继续处理已有客户端，退出期间不再恢复接收。
 - 事件循环在处理本批事件后扫描期限，使没有新事件的连接也能结束等待。严重错误退出前，先释放全部已管理的客户端，再关闭监听和 epoll。
 - `main()` 在创建日志线程前屏蔽 SIGINT/SIGTERM，再创建非阻塞 signalfd 并交给事件循环监听。退出请求以可读事件进入同一条事件处理路径。
 - 停止状态只设置一次退出截止时间。等待期间已有客户端继续按 Receiving、Sending、Draining 三个阶段处理。
@@ -79,6 +81,7 @@ flowchart LR
 | 单次最多取回的就绪事件 | 16 | `src/tcp_server.cpp` |
 | 单次监听事件最多 accept | 32 | `src/tcp_server.cpp` |
 | epoll_wait 最长等待 | 100 ms | `src/tcp_server.cpp` |
+| accept 资源不足重试间隔 | 至少 1 秒，达到期限后由事件循环重新登记监听 fd | `src/tcp_server.cpp` |
 | 接收空闲期限 | 30 秒；成功收到数据后更新 | `src/tcp_connection.cpp`、`src/tcp_server.cpp` |
 | 请求头接收总期限 | 接收并初始化连接起 60 秒；不随数据延长 | 同上 |
 | 发送空闲期限 | 进入 Sending 起 30 秒；部分发送成功后更新 | 同上 |
@@ -124,7 +127,8 @@ python3 tests/run_epoll_checks.py --report tests/reports/epoll-latest.json
 
 容量组需要同时持有 1024 个客户端及额外描述符，建议测试进程的 fd 软上限至少为 2048。可用 `ulimit -Sn`、`ulimit -Hn` 查看软硬上限；测试服务器会继承该限制。
 
-默认在独立临时目录重新构建，开启 `_GLIBCXX_ASSERTIONS` 和 UBSan，运行全部 14 组检查。
+默认在独立临时目录重新构建，开启 `_GLIBCXX_ASSERTIONS` 和 UBSan，运行全部 16 组检查。
+真实 fd 耗尽场景另用独立 Release + assertions 构建，避免检测运行库自身需要额外 fd 的影响；具体对照和边界见测试说明。
 30 秒接收、发送空闲期限和 60 秒请求头总期限均真实等待，超时分组并行执行。
 测试使用临时回环端口，不要求停止用户在 8080 上的服务，只关闭测试自己创建的连接和进程。
 
@@ -134,7 +138,7 @@ python3 tests/run_epoll_checks.py --only concurrency
 ```
 
 跳过超时或只选部分分组时不算完整验收。原有 122 项 HTTP 字节用例之外，当前验收还覆盖连接容量、敏感日志、真实信号退出和重复信号等场景。
-覆盖范围、故障注入和大响应测试的具体边界见 [tests/README.md](tests/README.md)，当前完整验收记录见 [tests/HARDENING_BASELINE.md](tests/HARDENING_BASELINE.md)，原始结果见 [功能报告](tests/reports/epoll-hardening-2026-11-14.json)。
+覆盖范围、故障注入和大响应测试的具体边界见 [tests/README.md](tests/README.md)，当前完整验收记录见 [tests/RECOVERY_BASELINE.md](tests/RECOVERY_BASELINE.md)，原始结果见 [功能报告](tests/reports/epoll-recovery-2026-11-15.json)。
 
 ## 本机性能基线
 
@@ -144,20 +148,20 @@ python3 tests/run_epoll_benchmark.py --report tests/reports/epoll-performance-la
 
 脚本独立构建 Release 版本，对 `/health`、`/hello` 运行 1、16、64 并发短连接，并补充等待连接和满容量场景。默认每次预热 0.5 秒、发压 3 秒、重复两次；保留 INFO 异步文件日志及生产收发策略。
 
-2026-11-14 在 AMD Ryzen 9 7940HX 的 Linux / WSL 回环网络上测得：
+2026-11-15 在 AMD Ryzen 9 7940HX 的 Linux / WSL 回环网络上测得：
 
 | 场景 | 并发请求数 | 两次成功 QPS 范围 | 两次 p99 延迟范围 |
 | --- | ---: | ---: | ---: |
-| `/health` | 64 | 4269～4293 | 9.60～11.84 ms |
-| `/hello` | 64 | 4138～4235 | 11.39～11.86 ms |
-| 256 个等待连接下请求 `/health` | 64 | 4092～4346 | 11.57～11.93 ms |
+| `/health` | 64 | 4028～4122 | 10.55～12.16 ms |
+| `/hello` | 64 | 4062～4128 | 11.00～11.50 ms |
+| 256 个等待连接下请求 `/health` | 64 | 3961～4105 | 11.76～11.98 ms |
 
-正常测量共校验 185314 个完整响应，请求错误为 0。全部 16 次测量的日志丢弃数均为 0；各场景结束后 fd 恢复基线。
+正常测量共校验 179282 个完整响应，请求错误为 0。全部 16 次测量的日志丢弃数均为 0；各场景结束后 fd 恢复基线。
 1024 个名额已满的两次测量均按预期拒绝新请求，拒绝不计入成功 QPS；释放名额后健康请求恢复正常。
 
 延迟包含建连、完整响应、服务器 FIN 和本地连接清理，吞吐量也计入最后一批在途请求完成所需的时间。
 客户端与服务器同机运行，Python asyncio 发压端及当前 backlog 可能限制负载。这是短时本机基线，尚未测出服务器极限或验证长期生产容量。
-完整参数、CPU/RSS/fd、日志统计和源码哈希见 [性能记录](tests/PERFORMANCE_BASELINE.md) 及 [原始报告](tests/reports/epoll-performance-2026-11-14.json)。
+完整参数、CPU/RSS/fd、日志统计和源码哈希见 [本轮记录](tests/RECOVERY_BASELINE.md) 及 [原始报告](tests/reports/epoll-performance-2026-11-15.json)。历史性能记录保留在 [tests/PERFORMANCE_BASELINE.md](tests/PERFORMANCE_BASELINE.md)。
 
 ## 模块结构
 
@@ -173,6 +177,7 @@ python3 tests/run_epoll_benchmark.py --report tests/reports/epoll-performance-la
 | `include/thread_pool.h`、`src/thread_pool.cpp` | 保留的线程池库；当前网络入口未使用 |
 | `tests/run_epoll_checks.py`、`tests/http_test_support.py` | 当前验收入口及共享收发、响应断言工具 |
 | `tests/epoll_hardening_checks.py` | 容量、日志隐私和优雅退出检查 |
+| `tests/accept_recovery_checks.py`、`tests/logger_time_checks.cpp` | accept 分类、资源不足暂停与恢复、真实 fd 耗尽，以及日志时间失败与恢复检查 |
 | `tests/run_epoll_benchmark.py` | Release 短连接性能测试、资源统计及环境记录 |
 | `tests/logger_stats_probe.cpp` | 测试时在生产事件循环返回后导出日志统计 |
 | `tests/http_cases.json` | 122 个原始 HTTP 字节用例及预期响应 |
@@ -198,6 +203,7 @@ tail -n 30 server.log
 
 若先进入 `build` 再执行 `./main`，则查看 `build/server.log`。
 日志附带时间、级别、线程编号和源码位置；fd 会被复用，不能作为永久连接身份。
+本地时间转换失败时，时间字段显示 `[time-unavailable]`，该条日志的级别、正文及源码位置仍然保留。
 日志库初始化失败输出到终端，日志队列满时会丢弃新消息。
 当前请求摘要示例：
 
@@ -213,6 +219,6 @@ tail -n 30 server.log
 未实现非零长度请求正文、chunked 解码、成功的 HEAD、keep-alive、pipelining、静态文件服务、TLS 或长期压力测试。
 ET 模式、更完整的 Reactor 封装以及把耗时业务交给线程池，留作后续学习阶段。
 
-当前 accept 错误处理只单独区分 EINTR、EAGAIN/EWOULDBLOCK；连接被中止、其他网络错误及 EMFILE/ENFILE 等资源不足仍会进入服务器级退出路径。应用层 1024 容量限制不能替代操作系统 fd 上限检查，也尚无资源不足时的退避和恢复机制。
+应用层 1024 容量限制不能替代操作系统 fd 上限。当前遇到 EMFILE/ENFILE 会暂停接收并定时重试；这不会提高系统资源上限，也不保证等待队列中的任意客户端都能及时接入。其他未分类的 accept 错误和监听登记操作失败仍按服务器级错误清理并退出。
 
-后续工程改进重点包括 accept 错误分级与资源不足时的恢复策略、集中配置、访问日志补全，以及用 RAII 简化描述符所有权和错误清理。
+后续工程改进重点包括集中配置、访问日志补全，以及用 RAII 简化描述符所有权和错误清理。

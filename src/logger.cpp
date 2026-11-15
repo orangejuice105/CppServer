@@ -121,11 +121,13 @@ std::string getCurrentTime() //获取当前时间
     time_t now = std::time(nullptr); //获取当前时间，单位为s
 
     //运用c++标准库中的std::tm结构体,tm_year等为结构体内成员变量
-    std::tm local_tm; //自己准备一个 tm 对象（分配在栈上，安全）
+    std::tm local_tm{}; //初始化时间结构体，供 localtime_r() 写入转换结果
 
-    // 调用 localtime_r，传入时间戳地址和tm对象地址
-    // 函数会把计算结果直接写进 local_tm 里
-    localtime_r(&now, &local_tm);
+    //调用 localtime_r，传入时间戳地址和tm对象地址
+    //将时间值转换为本地时间；转换失败时返回占位文字
+    if(localtime_r(&now, &local_tm) == nullptr){
+        return "time-unavailable";
+    }
 
     // 访问方式要改成 . 因为local_tm是对象不是指针
     int year = local_tm.tm_year + 1900; //年从1900开始算

@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
+#include <poll.h>
+#include <time.h>
 #include <unistd.h>
 
 namespace {
@@ -38,6 +40,25 @@ void trace(const char* message) {
         if (fd >= 0) {
             (void)write(fd, message, std::strlen(message));
             close(fd);
+        }
+    }
+    errno = saved;
+}
+
+// Separate monotonic evidence for accept retry intervals; disabled in normal runs.
+void traceAccept(const char* kind, int value) {
+    const int saved = errno;
+    static const char* path = std::getenv("CPP_EPOLL_TEST_ACCEPT_TRACE");
+    if (path) {
+        timespec now{};
+        if (clock_gettime(CLOCK_MONOTONIC, &now) == 0) {
+            char buffer[192];
+            const int size = std::snprintf(buffer, sizeof(buffer), "%lld.%09ld %s %d\n",
+                static_cast<long long>(now.tv_sec), now.tv_nsec, kind, value);
+            if (size > 0 && size < static_cast<int>(sizeof(buffer))) {
+                const int fd = open(path, O_CREAT | O_WRONLY | O_APPEND, 0600);
+                if (fd >= 0) { (void)write(fd, buffer, static_cast<size_t>(size)); close(fd); }
+            }
         }
     }
     errno = saved;
@@ -111,7 +132,26 @@ extern "C" int accept(int fd, sockaddr* address, socklen_t* length) {
         errno = EINTR;
         return -1;
     }
+    static const char* errorSetting = std::getenv("CPP_EPOLL_TEST_ACCEPT_ERROR");
+    static const int repeatCount = [] {
+        const char* value = std::getenv("CPP_EPOLL_TEST_ACCEPT_REPEATS");
+        return value ? std::atoi(value) : 1;
+    }();
+    static bool acceptedOne = false;
+    static int faultCount = 0;
+    // Inject only after an existing client is managed and another is actually queued.
+    if (errorSetting && acceptedOne && faultCount < repeatCount) {
+        pollfd pending{fd, POLLIN, 0};
+        if (poll(&pending, 1, 0) > 0 && (pending.revents & POLLIN)) {
+            ++faultCount;
+            const int error = std::atoi(errorSetting);
+            traceAccept("accept_error", error);
+            errno = error;
+            return -1;
+        }
+    }
     const int client = real(fd, address, length);
+    if (client >= 0) acceptedOne = true;
     if (client >= 0 && countEnabled) ++acceptedCount;
     if (client >= 0 && enabled("CPP_TCP_TEST_SMALL_SNDBUF")) {
         const int size = 4096;
@@ -186,6 +226,7 @@ extern "C" int epoll_ctl(int fd, int operation, int client, epoll_event* event) 
     static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "epoll_ctl"));
     static int listener = -1;
     static bool addFailed = false, modFailed = false, delFailed = false;
+    static bool listenerPaused = false;
     if (client == signalDescriptor && operation == EPOLL_CTL_ADD &&
         enabled("CPP_EPOLL_TEST_SIGNAL_ADD_FAIL")) {
         trace("SIGNAL_ADD_FAIL\n");
@@ -195,6 +236,12 @@ extern "C" int epoll_ctl(int fd, int operation, int client, epoll_event* event) 
     if (client == listener && operation == EPOLL_CTL_DEL &&
         enabled("CPP_EPOLL_TEST_LISTENER_DEL_FAIL")) {
         trace("LISTENER_DEL_FAIL\n");
+        errno = EIO;
+        return -1;
+    }
+    if (client == listener && operation == EPOLL_CTL_ADD && listenerPaused &&
+        enabled("CPP_EPOLL_TEST_LISTENER_RESUME_FAIL")) {
+        traceAccept("resume_add_failed", EIO);
         errno = EIO;
         return -1;
     }
@@ -219,6 +266,15 @@ extern "C" int epoll_ctl(int fd, int operation, int client, epoll_event* event) 
         }
     }
     const int result = real(fd, operation, client, event);
+    if (result == 0 && client == listener) {
+        if (operation == EPOLL_CTL_DEL) {
+            listenerPaused = true;
+            traceAccept("listener_del", client);
+        } else if (operation == EPOLL_CTL_ADD && listenerPaused) {
+            listenerPaused = false;
+            traceAccept("listener_add", client);
+        }
+    }
     if (result == 0 && listener < 0 && operation == EPOLL_CTL_ADD) listener = client;
     return result;
 }

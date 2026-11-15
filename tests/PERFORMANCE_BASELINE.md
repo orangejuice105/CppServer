@@ -1,5 +1,7 @@
 # LT epoll 本机性能基线
 
+2026-11-15 错误恢复修改后的重测见 [RECOVERY_BASELINE.md](RECOVERY_BASELINE.md) 和 [新性能报告](reports/epoll-performance-2026-11-15.json)。下文保留 2026-11-14 的历史数据。
+
 执行日期：2026-11-14（Asia/Shanghai）。原始结果、完整环境、输入与二进制 SHA-256 见 [reports/epoll-performance-2026-11-14.json](reports/epoll-performance-2026-11-14.json)。报告 `passed=true`，运行期间输入和二进制未变化，测试自己的服务器均已退出。
 
 ## 测量方式

@@ -1,0 +1,1704 @@
+{
+  "started_at": "2026-11-15T06:01:06.578571+00:00",
+  "artifacts": "/tmp/cppserver-epoll-checks-5uvsbpe4",
+  "selected_groups": [
+    "regression",
+    "helpers",
+    "lifecycle",
+    "concurrency",
+    "faults",
+    "draining",
+    "oversize",
+    "fatal-cleanup",
+    "capacity",
+    "request-logging",
+    "graceful-shutdown",
+    "accept-recovery",
+    "logger-time",
+    "receive-timeout",
+    "request-deadline",
+    "send-timeout"
+  ],
+  "source_before": {
+    "CMakeLists.txt": "dd263cb6a71f10830c3ccd36cab1516ee7461f992729a1e72bd2173b0b91be95",
+    "src/http_request.cpp": "09d34beb7a1a9009d85d4da946319d60f822929b98f54a8eec6b33fa75beb9a3",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/http_router.cpp": "6bb4cb0c91699efbd546c4acaa26ca64417c95f91c346d42bfeb109c9f1176bf",
+    "src/logger.cpp": "89873ae5dda8db5b7aa33e8f7b9c552b5ec3898d936731f78ce712e486277d6d",
+    "src/main.cpp": "9f76abfbc2918ddf4327a364941c00beaccff1eb780495fb2aa49ade81c86643",
+    "src/tcp_connection.cpp": "a2a021ef3b586ab50e3db49f1271298fd291fbee2e5f4bf3da48486486902fd6",
+    "src/tcp_server.cpp": "df805912984a90b163d12fc9e728a48af6a4b102c88a8a7698396268231ba2c5",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332",
+    "include/http_request.h": "c309682160e20b38419a439395265e2b83cec9b68025a5ad4a800778714a1650",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/http_router.h": "496c22f5c890d69576ff5d942d8cab157890cef88c071217ca3c0359beb2d9a5",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "c00c5290cdb1774c34835cd6bbd11fcfa176541b131cb76a4194818c8555dfa8",
+    "include/tcp_server.h": "7b58acb3dd096dfabb557df202bfa6ae086b923e5d3edcbd0db039a07d6cddbe",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "tests/epoll_connection_checks.cpp": "a9c1bb895c455fa8724760b0f4d58a2c51bf09134b44abd2a3dd20c673c2c2c9",
+    "tests/epoll_response_fixture.cpp": "370ef5d52ea907bfb225579e2bd5c2770de1dad93a1c77d453d38912560cb9d3",
+    "tests/epoll_send_checks.cpp": "8fef5366277445cecd827e715a44986ac1648cc1177c355fed595f42cb3a56c8",
+    "tests/epoll_server_fault_checks.cpp": "b24ad746a6329c33fa326b87f4f35ec3b56c7dfb2f797255a4bf5c6d21b93ef5",
+    "tests/logger_stats_probe.cpp": "872d5cada178962bfc58bef3e5be17fade84bdbb1c231b6ae65c92fc5282ee5a",
+    "tests/logger_time_checks.cpp": "d4bd01ee51c6abad2f2c1581ad103fd30080f5ebe6ecffb8828f4587fb3bc337",
+    "tests/socket_test_shim.cpp": "7df77606a9b025f1cfee3c5389a9e640d01bb9c9a886e308e23cd89cfdd177bf",
+    "tests/accept_recovery_checks.py": "d775bd3422ccba720ab1c78fdc5596164a6c964d8e7e8d09de6acc7893101776",
+    "tests/epoll_hardening_checks.py": "78415e4be5e89b7b03952e272e9e7f5aa18c3b4b26c5807b9e33c95f535bd162",
+    "tests/http_test_support.py": "d423f73eed290926817e28bb65230ed0d6df25db01b65cb006a1d5c5c1575703",
+    "tests/run_epoll_benchmark.py": "a68b87c09f06439dd4afcd7e9fa30e93a6e56324ed38bfba6320508b93ae7320",
+    "tests/run_epoll_checks.py": "af4766d15bb9b8607f4d9ef371b276c0f4d013e32b04ddfde0f799b401b7efaf",
+    "tests/http_cases.json": "58ace328ad46990a72470f099d2aea85b0db639c6000fa24302f5dd59b493a17"
+  },
+  "results": [
+    {
+      "name": "regression",
+      "passed": true,
+      "details": {
+        "passed_cases": 122,
+        "total_cases": 122,
+        "cases": [
+          {
+            "name": "ordinary-hello",
+            "passed": true,
+            "seconds": 0.00255
+          },
+          {
+            "name": "ordinary-health",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "ordinary-query",
+            "passed": true,
+            "seconds": 0.0004
+          },
+          {
+            "name": "ordinary-missing",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "ordinary-post",
+            "passed": true,
+            "seconds": 0.0004
+          },
+          {
+            "name": "ordinary-unknown-method",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "ordinary-head",
+            "passed": true,
+            "seconds": 0.0004
+          },
+          {
+            "name": "http10-without-host",
+            "passed": true,
+            "seconds": 0.00042
+          },
+          {
+            "name": "zero-content-length",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "nonzero-content-length",
+            "passed": true,
+            "seconds": 0.00037
+          },
+          {
+            "name": "invalid-content-length",
+            "passed": true,
+            "seconds": 0.0004
+          },
+          {
+            "name": "duplicate-content-length",
+            "passed": true,
+            "seconds": 0.00048
+          },
+          {
+            "name": "te-gzip-missing-chunked",
+            "passed": true,
+            "seconds": 0.00052
+          },
+          {
+            "name": "te-chunked-not-last",
+            "passed": true,
+            "seconds": 0.00054
+          },
+          {
+            "name": "te-adjacent-duplicate",
+            "passed": true,
+            "seconds": 0.00048
+          },
+          {
+            "name": "te-duplicate-across-fields",
+            "passed": true,
+            "seconds": 0.0006
+          },
+          {
+            "name": "te-empty",
+            "passed": true,
+            "seconds": 0.00064
+          },
+          {
+            "name": "te-comma-only",
+            "passed": true,
+            "seconds": 0.00071
+          },
+          {
+            "name": "te-unclosed-quote",
+            "passed": true,
+            "seconds": 0.00056
+          },
+          {
+            "name": "te-missing-parameter-value",
+            "passed": true,
+            "seconds": 0.00044
+          },
+          {
+            "name": "te-forbidden-chunked-parameter",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "te-forbidden-gzip-parameter",
+            "passed": true,
+            "seconds": 0.00092
+          },
+          {
+            "name": "te-invalid-name",
+            "passed": true,
+            "seconds": 0.00055
+          },
+          {
+            "name": "te-valid-chunked-not-implemented",
+            "passed": true,
+            "seconds": 0.00057
+          },
+          {
+            "name": "te-valid-gzip-chunked-not-implemented",
+            "passed": true,
+            "seconds": 0.00078
+          },
+          {
+            "name": "te-mixed-case",
+            "passed": true,
+            "seconds": 0.00048
+          },
+          {
+            "name": "te-valid-repeated-fields",
+            "passed": true,
+            "seconds": 0.00046
+          },
+          {
+            "name": "te-valid-quoted-comma",
+            "passed": true,
+            "seconds": 0.00051
+          },
+          {
+            "name": "te-valid-escaped-quote",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "te-empty-first-field",
+            "passed": true,
+            "seconds": 0.00053
+          },
+          {
+            "name": "te-empty-list-members",
+            "passed": true,
+            "seconds": 0.00047
+          },
+          {
+            "name": "te-zero-chunk-body-not-decoded",
+            "passed": true,
+            "seconds": 0.00052
+          },
+          {
+            "name": "te-split-head",
+            "passed": true,
+            "seconds": 0.16003
+          },
+          {
+            "name": "te-and-cl-conflict",
+            "passed": true,
+            "seconds": 0.00095
+          },
+          {
+            "name": "te-malformed-and-cl-conflict-priority",
+            "passed": true,
+            "seconds": 0.00056
+          },
+          {
+            "name": "http10-te-rejected-first",
+            "passed": true,
+            "seconds": 0.00068
+          },
+          {
+            "name": "unsupported-major-version-priority",
+            "passed": true,
+            "seconds": 0.00046
+          },
+          {
+            "name": "missing-host-priority",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "head-valid-te-no-body",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "head-invalid-te-no-body",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "ordinary-get-after-errors",
+            "passed": true,
+            "seconds": 0.00045
+          },
+          {
+            "name": "router-known-put",
+            "passed": true,
+            "seconds": 0.00049
+          },
+          {
+            "name": "router-known-delete",
+            "passed": true,
+            "seconds": 0.00045
+          },
+          {
+            "name": "router-known-options",
+            "passed": true,
+            "seconds": 0.00093
+          },
+          {
+            "name": "router-known-trace",
+            "passed": true,
+            "seconds": 0.00046
+          },
+          {
+            "name": "router-known-patch",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "router-connect",
+            "passed": true,
+            "seconds": 0.00046
+          },
+          {
+            "name": "router-options-star",
+            "passed": true,
+            "seconds": 0.00042
+          },
+          {
+            "name": "router-absolute-query",
+            "passed": true,
+            "seconds": 0.0008
+          },
+          {
+            "name": "validation-before-router-missing-host",
+            "passed": true,
+            "seconds": 0.00046
+          },
+          {
+            "name": "validation-before-router-request-body",
+            "passed": true,
+            "seconds": 0.00076
+          },
+          {
+            "name": "malformed-head-keeps-no-body",
+            "passed": true,
+            "seconds": 0.00046
+          },
+          {
+            "name": "router-http10-head",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "limit-complete-get-8191-accepted",
+            "passed": true,
+            "seconds": 0.00068
+          },
+          {
+            "name": "limit-complete-get-8192-accepted",
+            "passed": true,
+            "seconds": 0.00054
+          },
+          {
+            "name": "limit-complete-head-8192-accepted",
+            "passed": true,
+            "seconds": 0.0006
+          },
+          {
+            "name": "limit-complete-http10-8192-accepted",
+            "passed": true,
+            "seconds": 0.00054
+          },
+          {
+            "name": "limit-HTTP-1-1-GET-incomplete-8192",
+            "passed": true,
+            "seconds": 0.00094
+          },
+          {
+            "name": "limit-HTTP-1-1-GET-complete-8193",
+            "passed": true,
+            "seconds": 0.15921
+          },
+          {
+            "name": "limit-HTTP-1-1-HEAD-incomplete-8192",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "limit-HTTP-1-1-HEAD-complete-8193",
+            "passed": true,
+            "seconds": 0.15274
+          },
+          {
+            "name": "limit-HTTP-1-0-GET-incomplete-8192",
+            "passed": true,
+            "seconds": 0.00072
+          },
+          {
+            "name": "limit-HTTP-1-0-GET-complete-8193",
+            "passed": true,
+            "seconds": 0.15872
+          },
+          {
+            "name": "limit-HTTP-1-0-HEAD-incomplete-8192",
+            "passed": true,
+            "seconds": 0.00051
+          },
+          {
+            "name": "limit-HTTP-1-0-HEAD-complete-8193",
+            "passed": true,
+            "seconds": 0.15708
+          },
+          {
+            "name": "limit-no-request-line-terminator",
+            "passed": true,
+            "seconds": 0.00157
+          },
+          {
+            "name": "limit-overlong-complete-request-line",
+            "passed": true,
+            "seconds": 0.00074
+          },
+          {
+            "name": "limit-malformed-request-line",
+            "passed": true,
+            "seconds": 0.00057
+          },
+          {
+            "name": "ordinary-health-after-limit-errors",
+            "passed": true,
+            "seconds": 0.00064
+          },
+          {
+            "name": "eof-get-missing-final-empty-line",
+            "passed": true,
+            "seconds": 0.00045
+          },
+          {
+            "name": "eof-head-no-response-body",
+            "passed": true,
+            "seconds": 0.00045
+          },
+          {
+            "name": "eof-http10-get-preserves-version",
+            "passed": true,
+            "seconds": 0.00042
+          },
+          {
+            "name": "eof-http10-head-preserves-version",
+            "passed": true,
+            "seconds": 0.00059
+          },
+          {
+            "name": "eof-request-line-only",
+            "passed": true,
+            "seconds": 0.0004
+          },
+          {
+            "name": "eof-incomplete-header-field-line",
+            "passed": true,
+            "seconds": 0.00067
+          },
+          {
+            "name": "eof-empty-connection",
+            "passed": true,
+            "seconds": 0.00037
+          },
+          {
+            "name": "eof-incomplete-request-line",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "eof-malformed-head-request-line",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "eof-complete-get-remains-200",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "eof-complete-head-remains-405",
+            "passed": true,
+            "seconds": 0.00043
+          },
+          {
+            "name": "eof-split-incomplete-head",
+            "passed": true,
+            "seconds": 0.15102
+          },
+          {
+            "name": "health-after-eof-cases",
+            "passed": true,
+            "seconds": 0.00049
+          },
+          {
+            "name": "uri-origin-4096-routes-to-404",
+            "passed": true,
+            "seconds": 0.0011
+          },
+          {
+            "name": "uri-origin-4097-returns-414",
+            "passed": true,
+            "seconds": 0.00075
+          },
+          {
+            "name": "uri-head-4096-retains-405",
+            "passed": true,
+            "seconds": 0.00077
+          },
+          {
+            "name": "uri-head-4097-414-without-body",
+            "passed": true,
+            "seconds": 0.00092
+          },
+          {
+            "name": "uri-http10-4097-preserves-version",
+            "passed": true,
+            "seconds": 0.00083
+          },
+          {
+            "name": "uri-query-4096-still-routes-hello",
+            "passed": true,
+            "seconds": 0.00141
+          },
+          {
+            "name": "uri-query-4097-returns-414",
+            "passed": true,
+            "seconds": 0.00097
+          },
+          {
+            "name": "uri-absolute-4096-routes-to-404",
+            "passed": true,
+            "seconds": 0.00136
+          },
+          {
+            "name": "uri-absolute-4097-counts-entire-target",
+            "passed": true,
+            "seconds": 0.00122
+          },
+          {
+            "name": "uri-split-4097-returns-414",
+            "passed": true,
+            "seconds": 0.16061
+          },
+          {
+            "name": "uri-invalid-percent-stays-400",
+            "passed": true,
+            "seconds": 0.00062
+          },
+          {
+            "name": "uri-overlong-target-precedes-malformed-header",
+            "passed": true,
+            "seconds": 0.00112
+          },
+          {
+            "name": "health-after-uri-errors",
+            "passed": true,
+            "seconds": 0.00073
+          },
+          {
+            "name": "early-get-line-only-no-half-close",
+            "passed": true,
+            "seconds": 0.00096
+          },
+          {
+            "name": "early-head-line-only-no-body",
+            "passed": true,
+            "seconds": 0.00074
+          },
+          {
+            "name": "early-http10-get-preserves-version",
+            "passed": true,
+            "seconds": 0.00087
+          },
+          {
+            "name": "early-http10-head-preserves-version",
+            "passed": true,
+            "seconds": 0.00088
+          },
+          {
+            "name": "early-query-counts-entire-target",
+            "passed": true,
+            "seconds": 0.00145
+          },
+          {
+            "name": "early-absolute-counts-entire-target",
+            "passed": true,
+            "seconds": 0.00078
+          },
+          {
+            "name": "early-get-4096-waits-for-headers-then-404",
+            "passed": true,
+            "seconds": 0.15688
+          },
+          {
+            "name": "early-head-4096-waits-for-headers-then-405",
+            "passed": true,
+            "seconds": 0.15194
+          },
+          {
+            "name": "partial-rejects-before-final-lf",
+            "passed": true,
+            "seconds": 0.00225
+          },
+          {
+            "name": "early-unsupported-major-retains-505",
+            "passed": true,
+            "seconds": 0.15982
+          },
+          {
+            "name": "early-request-line-exactly-8192-returns-414",
+            "passed": true,
+            "seconds": 0.00075
+          },
+          {
+            "name": "health-after-early-target-cases",
+            "passed": true,
+            "seconds": 0.00045
+          },
+          {
+            "name": "partial-get-4097-no-version-no-crlf",
+            "passed": true,
+            "seconds": 0.00059
+          },
+          {
+            "name": "partial-head-4097-no-body",
+            "passed": true,
+            "seconds": 0.00071
+          },
+          {
+            "name": "partial-query-4097",
+            "passed": true,
+            "seconds": 0.00071
+          },
+          {
+            "name": "partial-absolute-target-4097",
+            "passed": true,
+            "seconds": 0.00068
+          },
+          {
+            "name": "partial-get-4096-waits-then-404",
+            "passed": true,
+            "seconds": 0.15521
+          },
+          {
+            "name": "partial-head-4096-waits-then-405",
+            "passed": true,
+            "seconds": 0.1556
+          },
+          {
+            "name": "partial-query-4096-waits-then-200",
+            "passed": true,
+            "seconds": 0.15968
+          },
+          {
+            "name": "partial-crosses-4096-to-4097",
+            "passed": true,
+            "seconds": 0.15112
+          },
+          {
+            "name": "partial-empty-target-waits-then-hello",
+            "passed": true,
+            "seconds": 0.15136
+          },
+          {
+            "name": "partial-invalid-method-does-not-trigger-414",
+            "passed": true,
+            "seconds": 0.15105
+          },
+          {
+            "name": "partial-long-method-is-not-a-long-target",
+            "passed": true,
+            "seconds": 0.00077
+          },
+          {
+            "name": "partial-default-version-with-incomplete-version",
+            "passed": true,
+            "seconds": 0.00066
+          },
+          {
+            "name": "buffered-large-prefix-delayed-read",
+            "passed": true,
+            "seconds": 0.20113
+          },
+          {
+            "name": "buffered-head-large-prefix-delayed-read",
+            "passed": true,
+            "seconds": 0.20098
+          },
+          {
+            "name": "health-after-partial-target-cases",
+            "passed": true,
+            "seconds": 0.00066
+          }
+        ],
+        "comparison": "All original status/header/body bytes; Date independently validated in UTC with server TZ America/New_York. Obsolete blocking-only EOF/status logs replaced by wire assertions; current parser and target rejection logs retained."
+      },
+      "seconds": 3.019991
+    },
+    {
+      "name": "helpers",
+      "passed": true,
+      "details": {
+        "passed_cases": 14,
+        "cases": [
+          "PASS expired-before-send",
+          "PASS complete-response-bytes",
+          "PASS real-EAGAIN-preserves-deadline",
+          "PASS real-partial-send-renews-deadline",
+          "PASS completed-response-keeps-complete-result",
+          "PASS injected-EINTR-preserves-deadline",
+          "PASS real-receive-EAGAIN-keeps-deadlines",
+          "PASS real-split-receive-preserves-total-deadline",
+          "PASS injected-receive-EINTR-retries",
+          "PASS expired-HEAD-http10-response",
+          "PASS expired-receive-does-not-consume-or-renew",
+          "PASS incomplete-header-EOF-prepares-400",
+          "PASS real-epoll-receive-send-drain-release",
+          "PASS drain-byte-limit-and-repeat-preserve-state"
+        ],
+        "scope": "Production receive/send/drain/event functions, real nonblocking socketpair and epoll; prepared expired timestamps for boundary checks, injected recv/send EINTR. Real long deadlines tested separately."
+      },
+      "seconds": 0.004332
+    },
+    {
+      "name": "lifecycle",
+      "passed": true,
+      "details": {
+        "repeated_connections": 40,
+        "empty_eof": true,
+        "half_close": true,
+        "real_tcp_reset": true,
+        "bind_conflict_logged": true,
+        "baseline_fds": 7,
+        "final_fds": 7
+      },
+      "seconds": 0.061261
+    },
+    {
+      "name": "concurrency",
+      "passed": true,
+      "details": {
+        "held_connections": 80,
+        "independent_request_seconds": 0.0003755019997697673,
+        "burst_requests": 200,
+        "burst_concurrency": 16,
+        "event_loop_thread_ids": [
+          "135862994442112"
+        ],
+        "baseline_fds": 7,
+        "final_fds": 7
+      },
+      "seconds": 2.234738
+    },
+    {
+      "name": "faults",
+      "passed": true,
+      "details": {
+        "cases": [
+          {
+            "name": "interrupts",
+            "injected": true,
+            "events": [
+              "ACCEPT_EINTR",
+              "RECV_EINTR",
+              "SEND_EINTR",
+              "PARTIAL_SEND",
+              "EPOLL_WAIT_EINTR"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "recv-again",
+            "injected": true,
+            "events": [
+              "RECV_EAGAIN"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "send-again",
+            "injected": true,
+            "events": [
+              "SEND_EAGAIN"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "add-fail",
+            "injected": true,
+            "events": [
+              "CLIENT_ADD_FAIL"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "mod-fail",
+            "injected": true,
+            "events": [
+              "CLIENT_MOD_FAIL"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "del-fail",
+            "injected": true,
+            "events": [
+              "CLIENT_DEL_FAIL"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "shutdown-fail",
+            "injected": true,
+            "events": [
+              "SHUTDOWN_FAIL"
+            ],
+            "recovered_fds": 7
+          }
+        ],
+        "scope": "Explicit syscall-return injection; no real signal delivery or resource exhaustion claimed."
+      },
+      "seconds": 0.18936
+    },
+    {
+      "name": "draining",
+      "passed": true,
+      "details": {
+        "quiet_drain_release_seconds": 0.11212927299948205,
+        "total_deadline_seconds": 1.0285355859996343,
+        "trickle_writes": 40,
+        "byte_limit_exercised": true,
+        "final_fds": 7
+      },
+      "seconds": 1.166469
+    },
+    {
+      "name": "oversize",
+      "passed": true,
+      "details": {
+        "total_cases": 20,
+        "cases": [
+          {
+            "method": "GET",
+            "target_bytes": 4096,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011699250999299693
+          },
+          {
+            "method": "GET",
+            "target_bytes": 4096,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.03260363499975938
+          },
+          {
+            "method": "GET",
+            "target_bytes": 4097,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.0014101500000833767
+          },
+          {
+            "method": "GET",
+            "target_bytes": 4097,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.022178312000505684
+          },
+          {
+            "method": "GET",
+            "target_bytes": 8193,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.010825476000718481
+          },
+          {
+            "method": "GET",
+            "target_bytes": 8193,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.03192081099950883
+          },
+          {
+            "method": "GET",
+            "target_bytes": 16384,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.01096537899957184
+          },
+          {
+            "method": "GET",
+            "target_bytes": 16384,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.02183585500006302
+          },
+          {
+            "method": "GET",
+            "target_bytes": 1048576,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.0011717409997800132
+          },
+          {
+            "method": "GET",
+            "target_bytes": 1048576,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [
+              32
+            ],
+            "seconds": 0.023320405000049504
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4096,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011482830000204558
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4096,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.022019586999704188
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4097,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.010983675999341358
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4097,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.03292309600055887
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 8193,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011063821999414358
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 8193,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.022210756999811565
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 16384,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011168777999955637
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 16384,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.022516752000228735
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 1048576,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011120529000436363
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 1048576,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [
+              32
+            ],
+            "seconds": 0.02217361000020901
+          }
+        ],
+        "policy": "Always require a complete HTTP response. Record EOF/RST separately; bounded cleanup can cause RST on excessive remaining input."
+      },
+      "seconds": 0.375098
+    },
+    {
+      "name": "fatal-cleanup",
+      "passed": true,
+      "details": {
+        "cases": [
+          {
+            "name": "empty",
+            "output": "PASS empty clients=0 returned_without_open_fds=true"
+          },
+          {
+            "name": "wait-fatal",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS wait-fatal clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "listener-error",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS listener-error clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "accept-fatal",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS accept-fatal clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "delete-failure",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS delete-failure clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "close-eintr",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS close-eintr clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "pause-del-failure",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS pause-del-failure clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "resume-add-failure",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS resume-add-failure clients=3 returned_without_open_fds=true"
+          }
+        ],
+        "scope": "Real TCP clients, injected fatal paths (accept uses EBADF, not recoverable EMFILE); verify client/listener/epoll fds before the test process exits. Injected close EINTR follows an actual successful close and must not be retried."
+      },
+      "seconds": 1.073225
+    },
+    {
+      "name": "capacity",
+      "passed": true,
+      "details": {
+        "limit": 1024,
+        "rejected_connections": 101,
+        "rejection_endings": [
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof"
+        ],
+        "warning_counts": [
+          1,
+          100
+        ],
+        "replacement_request_passed": true,
+        "baseline_fds": 7,
+        "final_fds": 7
+      },
+      "seconds": 0.584669
+    },
+    {
+      "name": "request-logging",
+      "passed": true,
+      "details": {
+        "valid_and_malformed_requests": true,
+        "synthetic_secret_markers": 4,
+        "query_authorization_cookie_and_header_values_absent": true,
+        "method_path_version_fd_present": true,
+        "logs_flushed_on_exit": true
+      },
+      "seconds": 0.013378
+    },
+    {
+      "name": "graceful-shutdown",
+      "passed": true,
+      "details": {
+        "actual_signals": true,
+        "grace_seconds": 5,
+        "cases": [
+          {
+            "name": "idle-SIGINT",
+            "exit_code": 0,
+            "seconds": 0.001315084999987448
+          },
+          {
+            "name": "idle-SIGTERM",
+            "exit_code": 0,
+            "seconds": 0.0012774540000464185
+          },
+          {
+            "name": "finish-existing-and-repeat",
+            "completed_responses": 2,
+            "late_client_processed": false,
+            "repeated_signal_passed": true,
+            "exit_code": 0
+          },
+          {
+            "name": "peer-write-direction-open",
+            "seconds": 0.1192722940004387,
+            "exit_code": 0
+          },
+          {
+            "name": "receive-deadline",
+            "seconds": 5.120644085999629,
+            "repeated_after_seconds": null,
+            "exit_code": 0
+          },
+          {
+            "name": "receive-deadline-repeat",
+            "seconds": 5.102586406000228,
+            "repeated_after_seconds": 2,
+            "exit_code": 0
+          },
+          {
+            "name": "real-backpressured-send",
+            "seconds": 5.097928906000561,
+            "exit_code": 0,
+            "response_bytes": 8388749,
+            "accepted_before_stop": 12288,
+            "received_bytes": 12288,
+            "complete_response": false,
+            "scope": "Test-only 8 MiB response; production IO, clocks and shutdown policy"
+          },
+          {
+            "name": "injected-signal-read-eintr",
+            "exit_code": 0,
+            "injected": true
+          },
+          {
+            "name": "injected-signal-read-again",
+            "exit_code": 0,
+            "injected": true
+          },
+          {
+            "name": "injected-signal-read-error",
+            "exit_code": 1,
+            "injected": true
+          },
+          {
+            "name": "injected-signal-read-short",
+            "exit_code": 1,
+            "injected": true
+          },
+          {
+            "name": "injected-listener-del-failure",
+            "injected": true,
+            "exit_code": 1
+          },
+          {
+            "name": "injected-signal-add-failure",
+            "injected": true,
+            "exit_code": 1
+          }
+        ],
+        "scope": "Real SIGINT/SIGTERM, unmodified clocks and bounded shutdown. Syscall faults and the enlarged-response sending fixture are explicitly labeled. A TCP handshake can still complete against the underegistered listener; new clients must not be accepted or processed."
+      },
+      "seconds": 16.178329
+    },
+    {
+      "name": "accept-recovery",
+      "passed": false,
+      "error": "Traceback (most recent call last):\n  File \"/home/asus/project/project3/tests/run_epoll_checks.py\", line 461, in run_group\n    try:item['details']=getattr(suite,name.replace('-','_'))();item['passed']=True\n  File \"/home/asus/project/project3/tests/run_epoll_checks.py\", line 99, in accept_recovery\n    return check_accept_recovery(self, Server)\n  File \"/home/asus/project/project3/tests/accept_recovery_checks.py\", line 214, in check_accept_recovery\n    finish_held(held.pop(0), started)\n  File \"/home/asus/project/project3/tests/accept_recovery_checks.py\", line 46, in finish_held\n    require(parse_response(read_all(held), started) ==\n  File \"/home/asus/project/project3/tests/http_test_support.py\", line 43, in parse_response\n    require(separator, 'Incomplete HTTP response: ' + repr(data))\n  File \"/home/asus/project/project3/tests/http_test_support.py\", line 16, in require\n    raise AssertionError(message)\nAssertionError: Incomplete HTTP response: b''\n",
+      "seconds": 10.817204
+    },
+    {
+      "name": "logger-time",
+      "passed": true,
+      "details": {
+        "passed_cases": 3,
+        "cases": [
+          {
+            "name": "normal",
+            "output": "PASS normal conversions=2",
+            "log_lines": 1
+          },
+          {
+            "name": "failure",
+            "output": "PASS failure conversions=2",
+            "log_lines": 1
+          },
+          {
+            "name": "recovery",
+            "output": "PASS recovery conversions=4",
+            "log_lines": 2
+          }
+        ],
+        "scope": "Real logger and queue/destructor flush; only localtime_r failure is injected. Check direct helper results, call counts, persisted bodies and recovery; no server-clock changes."
+      },
+      "seconds": 0.006892
+    },
+    {
+      "name": "receive-timeout",
+      "passed": true,
+      "details": {
+        "actual_clock": true,
+        "idle_seconds": 30,
+        "cases": [
+          {
+            "name": "empty",
+            "seconds": 30.04972897800053,
+            "response_hex": ""
+          },
+          {
+            "name": "incomplete-line",
+            "seconds": 30.04865084300036,
+            "response_hex": ""
+          },
+          {
+            "name": "get",
+            "seconds": 30.049165860999892,
+            "response_hex": "485454502f312e312034303820526571756573742054696d656f75740d0a446174653a2053756e2c203135204e6f7620323032362030363a30323a313520474d540d0a436f6e74656e742d547970653a20746578742f706c61696e3b20636861727365743d7574662d380d0a436f6e74656e742d4c656e6774683a2031360d0a436f6e6e656374696f6e3a20636c6f73650d0a0d0a526571756573742054696d656f75740a"
+          },
+          {
+            "name": "head",
+            "seconds": 30.048406335000436,
+            "response_hex": "485454502f312e312034303820526571756573742054696d656f75740d0a446174653a2053756e2c203135204e6f7620323032362030363a30323a313520474d540d0a436f6e74656e742d547970653a20746578742f706c61696e3b20636861727365743d7574662d380d0a436f6e6e656374696f6e3a20636c6f73650d0a0d0a"
+          },
+          {
+            "name": "http10",
+            "seconds": 30.047888397999486,
+            "response_hex": "485454502f312e302034303820526571756573742054696d656f75740d0a446174653a2053756e2c203135204e6f7620323032362030363a30323a313520474d540d0a436f6e74656e742d547970653a20746578742f706c61696e3b20636861727365743d7574662d380d0a436f6e74656e742d4c656e6774683a2031360d0a436f6e6e656374696f6e3a20636c6f73650d0a0d0a526571756573742054696d656f75740a"
+          }
+        ],
+        "final_fds": 7
+      },
+      "seconds": 30.081363
+    },
+    {
+      "name": "send-timeout",
+      "passed": true,
+      "details": {
+        "actual_clock": true,
+        "idle_seconds": 30,
+        "cases": [
+          {
+            "name": "full-buffer-30s",
+            "output": "PASS full-buffer-30s elapsed=30.001669 real_EAGAIN_returns=594"
+          },
+          {
+            "name": "two-real-stalled-TCP-clients",
+            "cases": [
+              {
+                "fd": 7,
+                "accepted_bytes": 12288,
+                "response_bytes": 8388749,
+                "seconds_after_last_send": 30.076872069
+              },
+              {
+                "fd": 8,
+                "accepted_bytes": 12288,
+                "response_bytes": 8388749,
+                "seconds_after_last_send": 30.06754749
+              }
+            ],
+            "health_during_stall_seconds": 0.0008640880005259532,
+            "final_fds": 7
+          },
+          {
+            "name": "progress-at-20s",
+            "output": "PASS progress-at-20s elapsed=50.033233 idle_after_last_progress=30.031012 accepted_bytes=16128"
+          }
+        ],
+        "scope": "Real kernel backpressure, no EAGAIN/clock injection. Direct current sendResponse plus current main/event loop with test-only 8 MiB response fixture; production routes unchanged."
+      },
+      "seconds": 50.044817
+    },
+    {
+      "name": "request-deadline",
+      "passed": true,
+      "details": {
+        "actual_clock": true,
+        "total_seconds": 60,
+        "cases": [
+          {
+            "name": "get",
+            "seconds": 60.066066333999515,
+            "fragments": [
+              {
+                "seconds": 20.01956766999956,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.02825134500017,
+                "bytes": 1
+              }
+            ]
+          },
+          {
+            "name": "head",
+            "seconds": 60.065406614000494,
+            "fragments": [
+              {
+                "seconds": 20.020604262000234,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.089687886999855,
+                "bytes": 1
+              }
+            ]
+          },
+          {
+            "name": "http10",
+            "seconds": 60.064559020999695,
+            "fragments": [
+              {
+                "seconds": 20.020807021999644,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.031088757999896,
+                "bytes": 1
+              }
+            ]
+          },
+          {
+            "name": "complete-at-50s",
+            "seconds": 50.05123491700033,
+            "fragments": [
+              {
+                "seconds": 20.02029272100026,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.02566926500003,
+                "bytes": 1
+              },
+              {
+                "seconds": 50.050909974000206,
+                "bytes": 12
+              }
+            ]
+          }
+        ],
+        "starts_at": "accepted connection initialization"
+      },
+      "seconds": 60.094087
+    }
+  ],
+  "fatal": null,
+  "configuration": {
+    "mode": "nonblocking LT epoll",
+    "receive_idle_seconds": 30,
+    "send_idle_seconds": 30,
+    "request_head_seconds": 60,
+    "drain_total_seconds": 1,
+    "drain_idle_milliseconds": 100,
+    "drain_max_bytes": 65536,
+    "max_connections": 1024,
+    "shutdown_grace_seconds": 5,
+    "accept_retry_seconds": 1,
+    "logger_time_fallback": "time-unavailable"
+  },
+  "isolation": "Fresh CMake build with assertions/UBSan; only test child bind is redirected to temporary loopback ports. Original deadlines unchanged; owned processes only. Explicit injected faults and enlarged response fixture are recorded per group.",
+  "fresh_build": "passed with _GLIBCXX_ASSERTIONS and undefined-behavior sanitizer",
+  "binary_sha256": {
+    "main": "a0068d15d0ae01095a5fb9c70b5f8d4dc0c7b2473a1b5a8441428dd6f63f2562",
+    "epoll_connection_checks": "fb3e80c330ac7f3a9295d457067198c3f5780068e26d973816e205841a19b108",
+    "epoll_send_checks": "0dfa65ae085e7437750dadf60846de9cb55f0438acbe332761dc33ad1f81fb43",
+    "epoll_server_fault_checks": "54071b62c8e04be4d916d0dea1bb5a8aa5499e9c9c37a6e44edc77978fa19f6b",
+    "epoll_response_fixture": "cab0b42d5cb392b68306e0a6bd86656318fa1567da1eeb76115ad3c6edc2a8f7",
+    "epoll_observed_server": "64d0386fa5b0ededa7904372b2cc057d1cf1de4d1c3274393adce9a404af28e9",
+    "logger_time_checks": "bcff0bfaf79ee368db2757726f862f48ce26b27db1d2c08795e316c199b815b9"
+  },
+  "binaries_unchanged": true,
+  "all_owned_servers_stopped": true,
+  "server_ports": [
+    {
+      "group": "regression",
+      "loopback_port": 49451
+    },
+    {
+      "group": "lifecycle",
+      "loopback_port": 39903
+    },
+    {
+      "group": "concurrency",
+      "loopback_port": 40481
+    },
+    {
+      "group": "fault-interrupts",
+      "loopback_port": 56607
+    },
+    {
+      "group": "fault-recv-again",
+      "loopback_port": 40527
+    },
+    {
+      "group": "fault-send-again",
+      "loopback_port": 46641
+    },
+    {
+      "group": "fault-add-fail",
+      "loopback_port": 51195
+    },
+    {
+      "group": "fault-mod-fail",
+      "loopback_port": 48071
+    },
+    {
+      "group": "fault-del-fail",
+      "loopback_port": 60563
+    },
+    {
+      "group": "fault-shutdown-fail",
+      "loopback_port": 57483
+    },
+    {
+      "group": "draining",
+      "loopback_port": 41239
+    },
+    {
+      "group": "oversize",
+      "loopback_port": 44119
+    },
+    {
+      "group": "capacity",
+      "loopback_port": 44071
+    },
+    {
+      "group": "request-logging",
+      "loopback_port": 48785
+    },
+    {
+      "group": "stop-idle-SIGINT",
+      "loopback_port": 34931
+    },
+    {
+      "group": "stop-idle-SIGTERM",
+      "loopback_port": 36695
+    },
+    {
+      "group": "stop-finish-existing",
+      "loopback_port": 40417
+    },
+    {
+      "group": "stop-peer-write-open",
+      "loopback_port": 44753
+    },
+    {
+      "group": "stop-deadline-False",
+      "loopback_port": 50861
+    },
+    {
+      "group": "stop-deadline-True",
+      "loopback_port": 60799
+    },
+    {
+      "group": "stop-sending",
+      "loopback_port": 53529
+    },
+    {
+      "group": "stop-read-eintr",
+      "loopback_port": 42469
+    },
+    {
+      "group": "stop-read-again",
+      "loopback_port": 40293
+    },
+    {
+      "group": "stop-read-error",
+      "loopback_port": 50615
+    },
+    {
+      "group": "stop-read-short",
+      "loopback_port": 34025
+    },
+    {
+      "group": "stop-listener-del-fail",
+      "loopback_port": 39463
+    },
+    {
+      "group": "stop-signal-add-fail",
+      "loopback_port": 41139
+    },
+    {
+      "group": "accept-normal-control",
+      "loopback_port": 60323
+    },
+    {
+      "group": "accept-network-ECONNABORTED",
+      "loopback_port": 37687
+    },
+    {
+      "group": "accept-network-ENETDOWN",
+      "loopback_port": 56217
+    },
+    {
+      "group": "accept-network-EPROTO",
+      "loopback_port": 36383
+    },
+    {
+      "group": "accept-network-ENOPROTOOPT",
+      "loopback_port": 36019
+    },
+    {
+      "group": "accept-network-EHOSTDOWN",
+      "loopback_port": 35549
+    },
+    {
+      "group": "accept-network-ENONET",
+      "loopback_port": 36625
+    },
+    {
+      "group": "accept-network-EHOSTUNREACH",
+      "loopback_port": 40451
+    },
+    {
+      "group": "accept-network-EOPNOTSUPP",
+      "loopback_port": 52925
+    },
+    {
+      "group": "accept-network-ENETUNREACH",
+      "loopback_port": 50841
+    },
+    {
+      "group": "accept-EMFILE-repeat-1",
+      "loopback_port": 49305
+    },
+    {
+      "group": "accept-ENFILE-repeat-1",
+      "loopback_port": 59411
+    },
+    {
+      "group": "accept-EMFILE-repeat-3",
+      "loopback_port": 59517
+    },
+    {
+      "group": "accept-paused-stop-SIGINT",
+      "loopback_port": 53699
+    },
+    {
+      "group": "accept-paused-stop-SIGTERM",
+      "loopback_port": 45585
+    },
+    {
+      "group": "accept-pause-del-failure",
+      "loopback_port": 53103
+    },
+    {
+      "group": "accept-resume-add-failure",
+      "loopback_port": 56529
+    },
+    {
+      "group": "accept-real-nofile-64",
+      "loopback_port": 44311
+    },
+    {
+      "group": "request-deadline",
+      "loopback_port": 60571
+    },
+    {
+      "group": "receive-timeout",
+      "loopback_port": 56409
+    },
+    {
+      "group": "send-timeout",
+      "loopback_port": 42253
+    }
+  ],
+  "source_after": {
+    "CMakeLists.txt": "dd263cb6a71f10830c3ccd36cab1516ee7461f992729a1e72bd2173b0b91be95",
+    "src/http_request.cpp": "09d34beb7a1a9009d85d4da946319d60f822929b98f54a8eec6b33fa75beb9a3",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/http_router.cpp": "6bb4cb0c91699efbd546c4acaa26ca64417c95f91c346d42bfeb109c9f1176bf",
+    "src/logger.cpp": "89873ae5dda8db5b7aa33e8f7b9c552b5ec3898d936731f78ce712e486277d6d",
+    "src/main.cpp": "9f76abfbc2918ddf4327a364941c00beaccff1eb780495fb2aa49ade81c86643",
+    "src/tcp_connection.cpp": "a2a021ef3b586ab50e3db49f1271298fd291fbee2e5f4bf3da48486486902fd6",
+    "src/tcp_server.cpp": "df805912984a90b163d12fc9e728a48af6a4b102c88a8a7698396268231ba2c5",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332",
+    "include/http_request.h": "c309682160e20b38419a439395265e2b83cec9b68025a5ad4a800778714a1650",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/http_router.h": "496c22f5c890d69576ff5d942d8cab157890cef88c071217ca3c0359beb2d9a5",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "c00c5290cdb1774c34835cd6bbd11fcfa176541b131cb76a4194818c8555dfa8",
+    "include/tcp_server.h": "7b58acb3dd096dfabb557df202bfa6ae086b923e5d3edcbd0db039a07d6cddbe",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "tests/epoll_connection_checks.cpp": "a9c1bb895c455fa8724760b0f4d58a2c51bf09134b44abd2a3dd20c673c2c2c9",
+    "tests/epoll_response_fixture.cpp": "370ef5d52ea907bfb225579e2bd5c2770de1dad93a1c77d453d38912560cb9d3",
+    "tests/epoll_send_checks.cpp": "8fef5366277445cecd827e715a44986ac1648cc1177c355fed595f42cb3a56c8",
+    "tests/epoll_server_fault_checks.cpp": "b24ad746a6329c33fa326b87f4f35ec3b56c7dfb2f797255a4bf5c6d21b93ef5",
+    "tests/logger_stats_probe.cpp": "872d5cada178962bfc58bef3e5be17fade84bdbb1c231b6ae65c92fc5282ee5a",
+    "tests/logger_time_checks.cpp": "d4bd01ee51c6abad2f2c1581ad103fd30080f5ebe6ecffb8828f4587fb3bc337",
+    "tests/socket_test_shim.cpp": "7df77606a9b025f1cfee3c5389a9e640d01bb9c9a886e308e23cd89cfdd177bf",
+    "tests/accept_recovery_checks.py": "d775bd3422ccba720ab1c78fdc5596164a6c964d8e7e8d09de6acc7893101776",
+    "tests/epoll_hardening_checks.py": "78415e4be5e89b7b03952e272e9e7f5aa18c3b4b26c5807b9e33c95f535bd162",
+    "tests/http_test_support.py": "d423f73eed290926817e28bb65230ed0d6df25db01b65cb006a1d5c5c1575703",
+    "tests/run_epoll_benchmark.py": "a68b87c09f06439dd4afcd7e9fa30e93a6e56324ed38bfba6320508b93ae7320",
+    "tests/run_epoll_checks.py": "af4766d15bb9b8607f4d9ef371b276c0f4d013e32b04ddfde0f799b401b7efaf",
+    "tests/http_cases.json": "58ace328ad46990a72470f099d2aea85b0db639c6000fa24302f5dd59b493a17"
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-11-15T06:02:45.286503+00:00",
+  "passed_groups": 15,
+  "full_acceptance": false
+}

@@ -242,6 +242,29 @@ void handleConnectionEvent(int epollFd,std::unordered_map<int,TcpConnection>& co
     }
 }
 
+//判断 accept() 的错误是否属于后续可以重试的连接或网络错误
+/*ECONNABORTED	连接被中止
+ENETDOWN	网络不可用
+EPROTO	协议错误
+ENOPROTOOPT	协议选项不可用
+EHOSTDOWN	主机不可用
+ENONET	主机没有连接到网络
+EHOSTUNREACH	主机不可达
+EOPNOTSUPP	操作不受支持
+ENETUNREACH	网络不可达*/
+bool isRetryableAcceptError(int error){
+    return error == ECONNABORTED || error == ENETDOWN || error == EPROTO ||
+            error == ENOPROTOOPT || error == EHOSTDOWN || error == ENONET ||
+            error == EHOSTUNREACH || error == EOPNOTSUPP || error == ENETUNREACH;
+}
+
+//判断accept()是否因文件描述符或系统打开文件资源耗尽而失败
+/*EMFILE	当前进程的文件描述符数量已达到上限
+ENFILE	整个系统的打开文件资源已达到上限*/
+bool isAcceptResourceError(int error){
+    return error == EMFILE || error == ENFILE;
+}
+
 int runTcpServer(int shutdownFd){
     //socket: Linux提供的系统调用接口，成功返回非负整数，失败返回-1
     //AF_INET: 选择IPv4地址体系
@@ -427,6 +450,8 @@ int runTcpServer(int shutdownFd){
 
     bool stopping = false; //整个服务器的状态，false为正常运行，true为收到退出请求，只继续处理已有连接
     std::chrono::steady_clock::time_point shutdownDeadline{}; //保存退出的截止时间
+    bool acceptPaused = false; //是否因资源不足而暂停接收新连接
+    std::chrono::steady_clock::time_point acceptRetryDeadline{}; //暂停接收后的重试时间
 
     //主线程通过epoll接收新连接，并推进客户端收发和清理
     while(true){
@@ -495,23 +520,24 @@ int runTcpServer(int shutdownFd){
 
                 //第一次收到退出请求时才进行状态切换
                 if(!stopping){
-                    //取消epoll登记的监听fd
-                    int removeListenResult = epoll_ctl(epollFd,EPOLL_CTL_DEL,listenFd,nullptr);
+                    if(!acceptPaused){
+                        //取消epoll登记的监听fd
+                        int removeListenResult = epoll_ctl(epollFd,EPOLL_CTL_DEL,listenFd,nullptr);
 
-                    if(removeListenResult == -1){
-                        const int error = errno;
-                        LOGGER_ERROR("取消监听socket的epoll登记失败,errno=" + std::to_string(error));
-                        removeAllConnections(epollFd,connections);
-                        close(listenFd);
-                        close(epollFd);
-                        return 1;
+                        if(removeListenResult == -1){
+                            const int error = errno;
+                            LOGGER_ERROR("取消监听socket的epoll登记失败,errno=" + std::to_string(error));
+                            removeAllConnections(epollFd,connections);
+                            close(listenFd);
+                            close(epollFd);
+                            return 1;
+                        }                        
                     }
-
-                    //取消登记成功后
+                    //监听登记已取消，进入退出状态
                     stopping = true;
 
                     //设置退出截止时间为5秒后
-                    shutdownDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+                    shutdownDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);    
                 }
                 //结束本次信号事件处理，让事件循环继续处理其他客户
                 continue;
@@ -523,8 +549,8 @@ int runTcpServer(int shutdownFd){
                 continue;
             }
 
-            //服务器正在停止时，跳过这条监听事件，不再调用accept
-            if(stopping){
+            //服务器正在停止或暂停接收时，跳过这条监听事件，不再调用accept
+            if(stopping || acceptPaused){
                 continue;
             }
 
@@ -566,6 +592,40 @@ int runTcpServer(int shutdownFd){
 
                     //当前没有连接可接收，结束本轮接收循环
                     if(error == EAGAIN || error == EWOULDBLOCK){
+                        break;
+                    }
+
+                    //新连接上的可恢复网络错误：结束本轮接收，交还事件循环，后续继续尝试
+                    if(isRetryableAcceptError(error)){
+                        LOGGER_WARN("接收新连接遇到可恢复网络错误,监听fd="
+                                    + std::to_string(listenFd) + ",errno=" + std::to_string(error));
+                        break;
+                    }
+
+                    //文件描述符或系统打开文件资源不足，暂停接收新连接
+                    if(isAcceptResourceError(error)){
+                        //取消监听fd的epoll登记
+                        const int pauseResult = epoll_ctl(epollFd,EPOLL_CTL_DEL,listenFd,nullptr);
+
+                        if(pauseResult == -1){
+                            const int pauseError = errno;
+                            LOGGER_ERROR("暂停接收新连接失败,监听fd=" + std::to_string(listenFd)
+                                        + ",errno=" + std::to_string(pauseError));
+                            
+                            removeAllConnections(epollFd, connections);
+                            close(epollFd);
+                            close(listenFd);
+                            return 1;
+                        }
+
+                        //取消登记成功后，记录暂停状态并设置重试时间
+                        acceptPaused = true;
+                        acceptRetryDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+
+                        LOGGER_WARN("接收新连接资源不足，暂停接收,监听fd="
+                                    + std::to_string(listenFd)
+                                    + ",errno=" + std::to_string(error));
+
                         break;
                     }
 
@@ -699,6 +759,29 @@ int runTcpServer(int shutdownFd){
                 removeConnection(epollFd,connections,clientFd);
             }
         }
+        //暂停接收期间，达到重试时间且服务器仍在运行时，恢复监听登记
+        if(acceptPaused && !stopping && now >= acceptRetryDeadline){
+            //重新登记监听fd
+            const int resumeResult = epoll_ctl(epollFd,EPOLL_CTL_ADD,listenFd,&listenEvent);
+
+            if(resumeResult == -1){
+                const int resumeError = errno;
+                LOGGER_ERROR("恢复监听socket的epoll登记失败,监听fd="
+                            + std::to_string(listenFd)
+                            + ",errno=" + std::to_string(resumeError));
+
+                removeAllConnections(epollFd, connections);
+                close(epollFd);
+                close(listenFd);
+                return 1;
+            }
+
+            //登记成功后，解除暂停
+            acceptPaused = false;
+            LOGGER_INFO("恢复监听登记，重新尝试接收新连接,监听fd="
+                        + std::to_string(listenFd));
+        }
+        
         //已经给过这些客户端等待时间，但它们仍未结束时主动关闭
         if(stopping && !connections.empty() && std::chrono::steady_clock::now() >= shutdownDeadline){
             LOGGER_WARN("优雅退出等待超时，关闭剩余连接,remaining="

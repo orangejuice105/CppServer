@@ -24,10 +24,12 @@ sys.dont_write_bytecode = True
 from http_test_support import (Server as TestServer, read_all, parse_response,
                              expected_response, request, require, wait_until, PREFIX, SUFFIX)
 from epoll_hardening_checks import check_capacity, check_request_logging, check_graceful_shutdown
+from accept_recovery_checks import check_accept_recovery
 
 PROJECT = Path(__file__).resolve().parents[1]
 GROUPS = ('regression', 'helpers', 'lifecycle', 'concurrency', 'faults', 'draining',
           'oversize', 'fatal-cleanup', 'capacity', 'request-logging', 'graceful-shutdown',
+          'accept-recovery', 'logger-time',
           'receive-timeout', 'request-deadline', 'send-timeout')
 TIMEOUTS = ('receive-timeout', 'request-deadline', 'send-timeout')
 
@@ -62,6 +64,8 @@ class Suite:
         self.root = root
         self.build = root/'build'
         self.binary = self.build/'main'
+        self.fd_build = root/'fd-limit-release-build'
+        self.fd_binary = self.fd_build/'main'
         self.shim = root/'socket_test_shim.so'
         self.processes = []
         self.server_ports = []
@@ -83,6 +87,15 @@ class Suite:
         self.command(['cmake', '--build', self.build, '-j', '4'], 'build')
         self.command(['g++', '-std=c++17', '-Wall', '-Wextra', '-Wpedantic', '-shared',
                       '-fPIC', '-pthread', PROJECT/'tests/socket_test_shim.cpp', '-ldl', '-o', self.shim], 'shim')
+        # GCC 11's UBSan vptr checker allocates a pipe. True fd exhaustion can
+        # therefore make it report a valid standard-library object as invalid.
+        # Use a cold-start production Release binary for genuine exhaustion;
+        # injected resource faults and the other checks retain UBSan.
+        self.command(['cmake', '-S', PROJECT, '-B', self.fd_build,
+                      '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_CXX_FLAGS=-D_GLIBCXX_ASSERTIONS'],
+                     'fd-limit-configure')
+        self.command(['cmake', '--build', self.fd_build, '--target', 'main', '-j', '4'],
+                     'fd-limit-build')
 
     def capacity(self):
         return check_capacity(self, Server)
@@ -92,6 +105,33 @@ class Suite:
 
     def graceful_shutdown(self):
         return check_graceful_shutdown(self, Server)
+
+    def accept_recovery(self):
+        return check_accept_recovery(self, Server)
+
+    def logger_time(self):
+        results = []
+        normal = r'\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\]'
+        for mode in ('normal', 'failure', 'recovery'):
+            path = self.root/('logger-time-'+mode+'.log')
+            output = self.command([self.build/'logger_time_checks', mode, path],
+                                  'logger-time-'+mode, timeout=5)
+            lines = path.read_text().splitlines()
+            require(len(lines) == (2 if mode == 'recovery' else 1), 'Missing/duplicate logger lines')
+            if mode == 'normal':
+                require(re.match(normal+r' \[INFO\]', lines[0]) and
+                        'normal-time-marker' in lines[0], 'Normal log timestamp')
+            elif mode == 'failure':
+                require(lines[0].startswith('[time-unavailable] [ERROR] ') and
+                        'failed-time-body-preserved' in lines[0], 'Fallback log/body was lost')
+            else:
+                require(lines[0].startswith('[time-unavailable] [WARN] ') and
+                        'before-time-recovery' in lines[0], 'Initial fallback log was lost')
+                require(re.match(normal+r' \[INFO\]', lines[1]) and
+                        'after-time-recovery' in lines[1], 'Logger did not recover after conversion failure')
+            results.append(dict(name=mode, output=output.strip(), log_lines=len(lines)))
+        return dict(passed_cases=len(results), cases=results,
+                    scope='Real logger and queue/destructor flush; only localtime_r failure is injected. Check direct helper results, call counts, persisted bodies and recovery; no server-clock changes.')
 
     def regression(self):
         cases = json.loads((PROJECT/'tests/http_cases.json').read_text())['cases']
@@ -301,14 +341,17 @@ class Suite:
         cases = []
         expected = {'wait-fatal':'等待epoll事件失败', 'listener-error':'监听socket出现错误或挂断',
                     'accept-fatal':'接收客户端连接失败', 'delete-failure':'取消epoll登记失败',
+                    'pause-del-failure':'暂停接收新连接失败',
+                    'resume-add-failure':'恢复监听socket的epoll登记失败',
                     'close-eintr':'关闭客户端描述符失败'}
-        for name in ('empty','wait-fatal','listener-error','accept-fatal','delete-failure','close-eintr'):
+        for name in ('empty','wait-fatal','listener-error','accept-fatal','delete-failure','close-eintr',
+                     'pause-del-failure','resume-add-failure'):
             log = self.root/(name+'.log')
             out = self.command([self.build/'epoll_server_fault_checks',name,log], 'fatal-'+name, timeout=15)
             require('PASS '+name in out, out)
             if name in expected: require(expected[name] in log.read_text(), 'missing fatal cleanup error log')
             cases.append(dict(name=name, output=out.strip()))
-        return dict(cases=cases, scope='Real TCP clients, injected fatal paths; verify client/listener/epoll fds before the test process exits. Injected close EINTR follows an actual successful close and must not be retried.')
+        return dict(cases=cases, scope='Real TCP clients, injected fatal paths (accept uses EBADF, not recoverable EMFILE); verify client/listener/epoll fds before the test process exits. Injected close EINTR follows an actual successful close and must not be retried.')
 
     def receive_timeout(self):
         examples = [('empty', b'', None), ('incomplete-line', b'GET /hel', None),
@@ -421,8 +464,9 @@ def main():
                 source_before=source_hashes(),results=[],fatal=None,
                 configuration=dict(mode='nonblocking LT epoll',receive_idle_seconds=30,send_idle_seconds=30,request_head_seconds=60,
                                    drain_total_seconds=1,drain_idle_milliseconds=100,drain_max_bytes=65536,
-                                   max_connections=1024,shutdown_grace_seconds=5),
-                isolation='Fresh CMake build with assertions/UBSan; only test child bind is redirected to temporary loopback ports. Original deadlines unchanged; owned processes only. Explicit injected faults and enlarged response fixture are recorded per group.')
+                                   max_connections=1024,shutdown_grace_seconds=5,accept_retry_seconds=1,
+                                   logger_time_fallback='time-unavailable'),
+                isolation='Fresh assertions/UBSan build for regular and injected-fault checks; cold-start real fd exhaustion uses a separately built assertions/Release main because GCC 11 UBSan vptr checking itself needs pipe descriptors. Only test-child bind is redirected to temporary loopback ports. Original deadlines unchanged; owned processes only. Faults and enlarged response fixtures are recorded per group.')
     def run_group(name):
         print('RUN',name,flush=True); begin=time.monotonic(); item=dict(name=name,passed=False)
         try:item['details']=getattr(suite,name.replace('-','_'))();item['passed']=True
@@ -432,14 +476,15 @@ def main():
         if not item['passed']:print(item['error'],flush=True)
     print('ARTIFACTS',root,flush=True)
     try:
-        suite.prepare();report['fresh_build']='passed with _GLIBCXX_ASSERTIONS and undefined-behavior sanitizer'
-        binaries=[suite.binary,suite.build/'epoll_connection_checks',suite.build/'epoll_send_checks',suite.build/'epoll_server_fault_checks',suite.build/'epoll_response_fixture',suite.build/'epoll_observed_server']
-        report['binary_sha256']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in binaries}
+        suite.prepare();report['fresh_build']='passed: assertions/UBSan tools plus separate assertions/Release main for real fd exhaustion'
+        binaries={p.name:p for p in [suite.binary,suite.build/'epoll_connection_checks',suite.build/'epoll_send_checks',suite.build/'epoll_server_fault_checks',suite.build/'epoll_response_fixture',suite.build/'epoll_observed_server',suite.build/'logger_time_checks',suite.shim]}
+        binaries['fd-limit-main']=suite.fd_binary
+        report['binary_sha256']={name:hashlib.sha256(p.read_bytes()).hexdigest() for name,p in binaries.items()}
         for name in groups:
             if name not in TIMEOUTS:run_group(name)
         with ThreadPoolExecutor(max_workers=3) as pool:
             for future in as_completed([pool.submit(run_group,name) for name in groups if name in TIMEOUTS]):future.result()
-        report['binaries_unchanged']=report['binary_sha256']=={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in binaries}
+        report['binaries_unchanged']=report['binary_sha256']=={name:hashlib.sha256(p.read_bytes()).hexdigest() for name,p in binaries.items()}
     except Exception:report['fatal']=traceback.format_exc();print(report['fatal'],flush=True)
     finally:
         for process in suite.processes:

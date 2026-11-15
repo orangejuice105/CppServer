@@ -35,6 +35,7 @@ std::atomic<bool> clientFailure{false};
 int listener = -1, poller = -1, shutdownDescriptor = -1;
 std::vector<int> registered, deleted, closed;
 bool triggered = false, badOrder = false, deleteFault = false, closeFault = false;
+bool listenerRemoved = false, resumeFault = false;
 int closeAttempts = 0;
 bool tracked(int fd) { return std::find(registered.begin(), registered.end(), fd) != registered.end(); }
 void require(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
@@ -79,6 +80,12 @@ extern "C" int __wrap_bind(int fd, const sockaddr* address, socklen_t length) {
 }
 extern "C" int __wrap_epoll_ctl(int epfd, int op, int fd, epoll_event* event) {
     poller = epfd;
+    if (fd == listener && op == EPOLL_CTL_DEL && mode == "pause-del-failure" && triggered) {
+        deleteFault = true; errno = EIO; return -1;
+    }
+    if (fd == listener && op == EPOLL_CTL_ADD && mode == "resume-add-failure" && listenerRemoved) {
+        resumeFault = true; errno = EIO; return -1;
+    }
     if (op == EPOLL_CTL_DEL && tracked(fd)) {
         if (isClosed(listener) || isClosed(epfd)) badOrder = true;
         deleted.push_back(fd);
@@ -87,18 +94,22 @@ extern "C" int __wrap_epoll_ctl(int epfd, int op, int fd, epoll_event* event) {
         }
     }
     int result = __real_epoll_ctl(epfd, op, fd, event);
+    if (result == 0 && op == EPOLL_CTL_DEL && fd == listener) listenerRemoved = true;
     if (result == 0 && op == EPOLL_CTL_ADD && fd != listener && fd != shutdownDescriptor)
         registered.push_back(fd);
     return result;
 }
 extern "C" int __wrap_accept(int fd, sockaddr* address, socklen_t* length) {
-    if (mode == "accept-fatal" && registered.size() == 3 && !triggered) {
-        triggered = true; errno = EMFILE; return -1;
+    if ((mode == "accept-fatal" || mode == "pause-del-failure" || mode == "resume-add-failure")
+            && registered.size() == 3 && !triggered) {
+        // EMFILE now exercises backoff/recovery; retain a genuinely fatal category here.
+        triggered = true; errno = mode == "accept-fatal" ? EBADF : EMFILE; return -1;
     }
     return __real_accept(fd, address, length);
 }
 extern "C" int __wrap_epoll_wait(int fd, epoll_event* events, int maxEvents, int timeout) {
-    if (mode != "accept-fatal" && registered.size() == 3 && !triggered) {
+    if (mode != "accept-fatal" && mode != "pause-del-failure" && mode != "resume-add-failure"
+            && registered.size() == 3 && !triggered) {
         triggered = true;
         if (mode == "listener-error") {
             events[0] = epoll_event{}; events[0].data.fd = listener; events[0].events = EPOLLERR;
@@ -160,6 +171,8 @@ int main(int argc, char** argv) {
             require(isClosed(listener), "listener leaked");
             require(isClosed(poller), "epoll leaked");
             if (mode == "delete-failure") require(deleteFault, "DEL fault not injected");
+            if (mode == "pause-del-failure") require(deleteFault, "listener DEL fault not injected");
+            if (mode == "resume-add-failure") require(resumeFault, "listener resume ADD fault not injected");
             if (mode == "close-eintr") require(closeFault, "close EINTR not injected");
         }
         require(!isClosed(shutdownDescriptor), "server closed the caller-owned signal fd");

@@ -58,6 +58,11 @@ if(CPPSERVER_BUILD_EPOLL_TEST_TOOLS)
     add_executable(epoll_connection_checks tests/epoll_connection_checks.cpp)
     add_executable(epoll_send_checks tests/epoll_send_checks.cpp)
     add_executable(epoll_server_fault_checks tests/epoll_server_fault_checks.cpp)
+    # 独立验证日志时间转换成功、失败和恢复，不需要网络事件循环。
+    add_executable(logger_time_checks tests/logger_time_checks.cpp)
+    target_link_libraries(logger_time_checks PRIVATE logger)
+    target_compile_options(logger_time_checks PRIVATE -Wall -Wextra -Wpedantic)
+    target_link_options(logger_time_checks PRIVATE -Wl,--wrap=localtime_r)
     # 仅测试时把指定响应扩大；沿用真实入口、收发函数及事件循环。
     add_executable(epoll_response_fixture
         src/main.cpp tests/epoll_response_fixture.cpp)

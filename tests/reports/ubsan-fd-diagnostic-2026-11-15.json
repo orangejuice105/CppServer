@@ -1,0 +1,62 @@
+{
+  "source": "#include <cerrno>\n#include <ctime>\n#include <fcntl.h>\n#include <iomanip>\n#include <iostream>\n#include <locale>\n#include <sstream>\n#include <string>\n#include <sys/resource.h>\n#include <unistd.h>\n#include <vector>\n\nstd::string formatDate() {\n    std::tm value{};\n    value.tm_year = 126; value.tm_mon = 10; value.tm_mday = 15;\n    std::ostringstream output;\n    output.imbue(std::locale::classic());\n    output << std::put_time(&value, \"%a, %d %b %Y %H:%M:%S GMT\");\n    return output.str();\n}\nint main(int argc, char** argv) {\n    const std::string mode = argc > 1 ? argv[1] : \"cold\";\n    rlimit limits{64, 64};\n    if (setrlimit(RLIMIT_NOFILE, &limits) != 0) return 2;\n    if (mode == \"warm\") std::cout << formatDate() << '\\n';\n    std::vector<int> descriptors;\n    while (true) {\n        int fd = open(\"/dev/null\", O_RDONLY);\n        if (fd < 0) break;\n        descriptors.push_back(fd);\n    }\n    if (errno != EMFILE) return 3;\n    if (mode == \"release\") {\n        for (int i = 0; i < 2; ++i) { close(descriptors.back()); descriptors.pop_back(); }\n    }\n    std::cout << formatDate() << '\\n';\n    for (int fd : descriptors) close(fd);\n}\n",
+  "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+  "source_reference": "https://github.com/gcc-mirror/gcc/blob/releases/gcc-11.4.0/libsanitizer/sanitizer_common/sanitizer_posix_libcdep.cpp#L255-L275",
+  "parent_limits_unchanged": true,
+  "results": [
+    {
+      "command": [
+        "/tmp/cppserver-ubsan-fd-plain",
+        "cold"
+      ],
+      "exit_code": 0,
+      "stdout": "Sun, 15 Nov 2026 00:00:00 GMT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/cppserver-ubsan-fd-plain",
+        "warm"
+      ],
+      "exit_code": 0,
+      "stdout": "Sun, 15 Nov 2026 00:00:00 GMT\nSun, 15 Nov 2026 00:00:00 GMT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/cppserver-ubsan-fd-plain",
+        "release"
+      ],
+      "exit_code": 0,
+      "stdout": "Sun, 15 Nov 2026 00:00:00 GMT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/cppserver-ubsan-fd-instrumented",
+        "cold"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "/usr/include/c++/11/iomanip:377:69: runtime error: cast to virtual base of address 0x7fff7cfe4300 which does not point to an object of type 'basic_ostream'\n0x7fff7cfe4300: note: object has invalid vptr\n<memory cannot be printed>\n"
+    },
+    {
+      "command": [
+        "/tmp/cppserver-ubsan-fd-instrumented",
+        "warm"
+      ],
+      "exit_code": 0,
+      "stdout": "Sun, 15 Nov 2026 00:00:00 GMT\nSun, 15 Nov 2026 00:00:00 GMT\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/tmp/cppserver-ubsan-fd-instrumented",
+        "release"
+      ],
+      "exit_code": 0,
+      "stdout": "Sun, 15 Nov 2026 00:00:00 GMT\n",
+      "stderr": ""
+    }
+  ]
+}
