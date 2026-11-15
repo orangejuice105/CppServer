@@ -47,18 +47,11 @@ curl --http1.1 -i --max-time 3 'http://127.0.0.1:8080/hello?name=Tom'
 
 ## 事件循环和连接状态
 
-```mermaid
-flowchart LR
-    A[accept 新连接] --> L{受管理连接少于 1024?}
-    L -->|是| B[非阻塞设置和 epoll 登记]
-    L -->|否| R[累计容量拒绝数并关闭新连接]
-    B --> C[Receiving 接收请求头]
-    C -->|响应准备好| D[Sending 发送响应]
-    D -->|响应全部交给内核| E[Draining 清理剩余输入]
-    E --> F[取消登记、关闭 fd、删除连接状态]
-    C -->|错误或无法构造超时响应| F
-    D -->|错误或发送超时| F
-```
+从上到下阅读。右侧分支表示容量拒绝或连接出错后的处理；accept 错误分类和重试规则见下方说明。
+
+[![连接接入与 Receiving、Sending、Draining 状态流程图](docs/images/connection-lifecycle.png)](docs/images/connection-lifecycle.svg)
+
+点击图片可查看矢量原图。
 
 - 监听和客户端 socket 都设置为非阻塞。LT 模式下，尚未处理完的就绪条件会继续触发通知。
 - `connections` 按 fd 保存请求、响应、发送进度、阶段及截止时间，供后续事件继续处理。
