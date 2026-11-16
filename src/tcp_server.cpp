@@ -258,11 +258,13 @@ bool isRetryableAcceptError(int error){
             error == EHOSTUNREACH || error == EOPNOTSUPP || error == ENETUNREACH;
 }
 
-//判断accept()是否因文件描述符或系统打开文件资源耗尽而失败
-/*EMFILE	当前进程的文件描述符数量已达到上限
-ENFILE	整个系统的打开文件资源已达到上限*/
+//判断 accept() 是否因文件描述符、缓冲区或内存资源不足而失败
+/*EMFILE  当前进程的文件描述符数量已达到上限
+ENFILE	  整个系统的打开文件资源已达到上限
+ENOBUFS   无法提供所需的缓冲区资源
+ENOMEM    无法分配本次操作所需的内存*/
 bool isAcceptResourceError(int error){
-    return error == EMFILE || error == ENFILE;
+    return error == EMFILE || error == ENFILE || error == ENOBUFS || error == ENOMEM;
 }
 
 int runTcpServer(int shutdownFd){
@@ -437,7 +439,10 @@ int runTcpServer(int shutdownFd){
 
     //创建数组保存epoll_wait()返回的事件
     const int maxEvents = 16; //设置该次调用最多取回16条就绪记录
-    const int maxAcceptPerEvent = 32; //处理一次监听事件时，最多接收的连接个数
+    const int maxAcceptCallsPerEvent = 32; //处理一次监听事件时，最多调用accept()的次数
+    constexpr int maxConsecutiveAcceptErrors = 32; //连续可恢复错误达到此次数时，暂停接收新连接
+    int consecutiveAcceptErrors = 0; //记录连续可恢复错误次数，供暂停接收的判断使用
+
     //constexpr: 表示这个值在编译时确定，之后不能修改
     constexpr std::size_t maxConnections = 1024; //应用层最多同时保存的连接对象数，覆盖接收、发送和清理阶段
     epoll_event readyEvents[maxEvents]{};
@@ -450,7 +455,7 @@ int runTcpServer(int shutdownFd){
 
     bool stopping = false; //整个服务器的状态，false为正常运行，true为收到退出请求，只继续处理已有连接
     std::chrono::steady_clock::time_point shutdownDeadline{}; //保存退出的截止时间
-    bool acceptPaused = false; //是否因资源不足而暂停接收新连接
+    bool acceptPaused = false; //是否因资源不足或连续可恢复错误而暂停接收新连接
     std::chrono::steady_clock::time_point acceptRetryDeadline{}; //暂停接收后的重试时间
 
     //主线程通过epoll接收新连接，并推进客户端收发和清理
@@ -568,13 +573,16 @@ int runTcpServer(int shutdownFd){
                 continue;
             }
 
-            //本次监听事件中，当已经成功接收的连接个数小于上限时，持续接收
+            //限制本次监听事件中accept()的次数，成功和失败都计入
             int acceptedCount = 0;
-            while(acceptedCount < maxAcceptPerEvent){
+            while(acceptedCount < maxAcceptCallsPerEvent){
                 //存放客户端地址的空间
                 sockaddr_in clientAddr{};
                 //socklen_t: socket API专门用于表示地址长度的整数类型
                 socklen_t clientAddrLen = sizeof(clientAddr); //clientAddr: 保存连接进来的客户端的IP和端口
+
+                //调用accept()，计数加一
+                acceptedCount++;
 
                 //从listenFd接收一个客户端连接，把客户端地址写进clientAddr，用于通信的编号返回给clientFd
                 int clientFd = accept( //一次accept只能取出一个客户端连接
@@ -586,24 +594,33 @@ int runTcpServer(int shutdownFd){
                 if(clientFd == -1){
                     const int error = errno;
 
-                    if(error == EINTR){
+                    //当前没有连接可接收，结束本轮接收循环
+                    if(error == EAGAIN || error == EWOULDBLOCK){
+                        consecutiveAcceptErrors = 0;
+                        break;
+                    }
+
+                    //判断本次错误是否需要累计
+                    const bool retryableError = error == EINTR || isRetryableAcceptError(error);
+                    if(retryableError){
+                        consecutiveAcceptErrors++;
+                    }
+
+                    if(error == EINTR && consecutiveAcceptErrors < maxConsecutiveAcceptErrors){
                         continue;
                     }
 
-                    //当前没有连接可接收，结束本轮接收循环
-                    if(error == EAGAIN || error == EWOULDBLOCK){
-                        break;
-                    }
-
-                    //新连接上的可恢复网络错误：结束本轮接收，交还事件循环，后续继续尝试
+                    //记录可恢复网络错误，未达到连续错误上限时结束本轮接收
                     if(isRetryableAcceptError(error)){
                         LOGGER_WARN("接收新连接遇到可恢复网络错误,监听fd="
                                     + std::to_string(listenFd) + ",errno=" + std::to_string(error));
-                        break;
+                        if(consecutiveAcceptErrors < maxConsecutiveAcceptErrors){
+                            break;
+                        }
                     }
 
-                    //文件描述符或系统打开文件资源不足，暂停接收新连接
-                    if(isAcceptResourceError(error)){
+                    //资源不足或连续可恢复错误达到上限时，暂停接收新连接
+                    if(isAcceptResourceError(error)|| (retryableError && consecutiveAcceptErrors >= maxConsecutiveAcceptErrors)){
                         //取消监听fd的epoll登记
                         const int pauseResult = epoll_ctl(epollFd,EPOLL_CTL_DEL,listenFd,nullptr);
 
@@ -621,11 +638,18 @@ int runTcpServer(int shutdownFd){
                         //取消登记成功后，记录暂停状态并设置重试时间
                         acceptPaused = true;
                         acceptRetryDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-
-                        LOGGER_WARN("接收新连接资源不足，暂停接收,监听fd="
+                        if(isAcceptResourceError(error)){
+                            LOGGER_WARN("接收新连接资源不足，暂停接收,监听fd="
                                     + std::to_string(listenFd)
                                     + ",errno=" + std::to_string(error));
-
+                        }
+                        else{
+                            LOGGER_WARN("接收新连接连续失败，暂停接收,监听fd="
+                                    + std::to_string(listenFd)
+                                    + ",errno=" + std::to_string(error)
+                                    + ",连续错误次数=" + std::to_string(consecutiveAcceptErrors));
+                        }
+                        consecutiveAcceptErrors = 0;
                         break;
                     }
 
@@ -639,8 +663,8 @@ int runTcpServer(int shutdownFd){
                     return 1;
                 }
 
-                //成功接收后，计数加一
-                acceptedCount++;
+                //accept()已成功，结束此前连续失败的计数
+                consecutiveAcceptErrors = 0;
 
                 //检查现有连接是否已达到容量上限，满额时不再接收新连接进入管理流程
                 //若连接已达到上限：关闭尚未登记和保存的fd，避免继续占用资源

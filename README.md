@@ -6,8 +6,8 @@
 主线程通过事件循环推进连接的接收、发送和清理。日志库使用独立后台线程；线程池源码保留供后续学习，当前服务器没有创建线程池，也不链接线程池库。
 
 当前已实现 1024 个受管理连接的容量限制、SIGINT/SIGTERM 优雅退出，以及不输出查询参数和请求头字段值的简要请求日志。
-accept 支持连接/网络错误分类，以及 EMFILE/ENFILE 下的暂停接收和定时重试；日志时间转换失败时保留正文并使用 `time-unavailable` 占位。
-2026-11-15 的完整功能验收通过 16 组检查，覆盖 accept 恢复和日志时间转换失败，另完成 16 次独立 Release 性能测量。当前版本定位为可复现、可继续扩展的 Linux 网络编程学习项目。
+accept 支持连接/网络错误分类，以及 EMFILE/ENFILE/ENOBUFS/ENOMEM 下的暂停接收和定时重试；连续可恢复错误达到 32 次也会暂停。日志时间转换失败时保留正文并使用 `time-unavailable` 占位。
+2026-11-16 的完整功能验收通过 16 组检查，其中 accept 恢复专项扩展到 39 项，覆盖连续错误退避、资源不足及恢复。独立 Release 性能测量保留 2026-11-15 的 16 次记录。当前版本定位为可复现、可继续扩展的 Linux 网络编程学习项目。
 
 ## 构建与运行
 
@@ -57,7 +57,7 @@ curl --http1.1 -i --max-time 3 'http://127.0.0.1:8080/hello?name=Tom'
 - `connections` 按 fd 保存请求、响应、发送进度、阶段及截止时间，供后续事件继续处理。
 - 接收阶段关注 `EPOLLIN`；发送阶段关注 `EPOLLOUT`，部分发送后从 `sentBytes` 继续；清理阶段重新关注 `EPOLLIN`。
 - `EAGAIN/EWOULDBLOCK` 表示暂时没有进展，交还事件循环；`EINTR` 重试时仍检查期限。
-- accept 的连接/网络错误记录警告并结束本轮接收；EMFILE/ENFILE 时删除监听登记，一秒后尝试重新登记。暂停期间继续处理已有客户端，退出期间不再恢复接收。
+- accept 的连接/网络错误记录警告，连续次数不足上限时结束本轮接收；EINTR 在本轮调用预算内重试。连续可恢复错误达到 32 次，或出现 EMFILE/ENFILE/ENOBUFS/ENOMEM 时，删除监听登记，一秒后尝试重新登记。成功接收、EAGAIN/EWOULDBLOCK 或进入暂停后清零连续错误计数；暂停期间继续处理已有客户端，退出期间不再恢复接收。
 - 事件循环在处理本批事件后扫描期限，使没有新事件的连接也能结束等待。严重错误退出前，先释放全部已管理的客户端，再关闭监听和 epoll。
 - `main()` 在创建日志线程前屏蔽 SIGINT/SIGTERM，再创建非阻塞 signalfd 并交给事件循环监听。退出请求以可读事件进入同一条事件处理路径。
 - 停止状态只设置一次退出截止时间。等待期间已有客户端继续按 Receiving、Sending、Draining 三个阶段处理。
@@ -72,9 +72,10 @@ curl --http1.1 -i --max-time 3 'http://127.0.0.1:8080/hello?name=Tom'
 | 容量拒绝日志 | 第 1 次及累计每 100 次记录 WARN | `src/tcp_server.cpp` |
 | 优雅退出等待期限 | 第一次退出信号起 5 秒；重复信号不延长 | `src/tcp_server.cpp` |
 | 单次最多取回的就绪事件 | 16 | `src/tcp_server.cpp` |
-| 单次监听事件最多 accept | 32 | `src/tcp_server.cpp` |
+| 单次监听事件最多调用 accept | 32；成功、失败和 EINTR 都计入 | `src/tcp_server.cpp` |
+| 连续可恢复 accept 错误上限 | 32；跨监听事件累计，达到后暂停接收 | `src/tcp_server.cpp` |
 | epoll_wait 最长等待 | 100 ms | `src/tcp_server.cpp` |
-| accept 资源不足重试间隔 | 至少 1 秒，达到期限后由事件循环重新登记监听 fd | `src/tcp_server.cpp` |
+| accept 暂停重试间隔 | 至少 1 秒，达到期限后由事件循环重新登记监听 fd | `src/tcp_server.cpp` |
 | 接收空闲期限 | 30 秒；成功收到数据后更新 | `src/tcp_connection.cpp`、`src/tcp_server.cpp` |
 | 请求头接收总期限 | 接收并初始化连接起 60 秒；不随数据延长 | 同上 |
 | 发送空闲期限 | 进入 Sending 起 30 秒；部分发送成功后更新 | 同上 |
@@ -131,7 +132,7 @@ python3 tests/run_epoll_checks.py --only concurrency
 ```
 
 跳过超时或只选部分分组时不算完整验收。原有 122 项 HTTP 字节用例之外，当前验收还覆盖连接容量、敏感日志、真实信号退出和重复信号等场景。
-覆盖范围、故障注入和大响应测试的具体边界见 [tests/README.md](tests/README.md)，当前完整验收记录见 [tests/RECOVERY_BASELINE.md](tests/RECOVERY_BASELINE.md)，原始结果见 [功能报告](tests/reports/epoll-recovery-2026-11-15.json)。
+覆盖范围、故障注入和大响应测试的具体边界见 [tests/README.md](tests/README.md)，当前完整验收记录见 [tests/ACCEPT_BACKOFF_BASELINE.md](tests/ACCEPT_BACKOFF_BASELINE.md)，原始结果见 [功能报告](tests/reports/epoll-accept-backoff-2026-11-16.json)。
 
 ## 本机性能基线
 
@@ -155,6 +156,7 @@ python3 tests/run_epoll_benchmark.py --report tests/reports/epoll-performance-la
 延迟包含建连、完整响应、服务器 FIN 和本地连接清理，吞吐量也计入最后一批在途请求完成所需的时间。
 客户端与服务器同机运行，Python asyncio 发压端及当前 backlog 可能限制负载。这是短时本机基线，尚未测出服务器极限或验证长期生产容量。
 完整参数、CPU/RSS/fd、日志统计和源码哈希见 [本轮记录](tests/RECOVERY_BASELINE.md) 及 [原始报告](tests/reports/epoll-performance-2026-11-15.json)。历史性能记录保留在 [tests/PERFORMANCE_BASELINE.md](tests/PERFORMANCE_BASELINE.md)。
+上述性能结果对应 2026-11-15 的输入快照；本轮 accept 错误处理修改后尚未重测性能。
 
 ## 模块结构
 
@@ -212,6 +214,6 @@ tail -n 30 server.log
 未实现非零长度请求正文、chunked 解码、成功的 HEAD、keep-alive、pipelining、静态文件服务、TLS 或长期压力测试。
 ET 模式、更完整的 Reactor 封装以及把耗时业务交给线程池，留作后续学习阶段。
 
-应用层 1024 容量限制不能替代操作系统 fd 上限。当前遇到 EMFILE/ENFILE 会暂停接收并定时重试；这不会提高系统资源上限，也不保证等待队列中的任意客户端都能及时接入。其他未分类的 accept 错误和监听登记操作失败仍按服务器级错误清理并退出。
+应用层 1024 容量限制不能替代操作系统 fd 上限。当前遇到 EMFILE/ENFILE/ENOBUFS/ENOMEM 会暂停接收并定时重试；这不会提高系统资源上限，也不保证等待队列中的任意客户端都能及时接入。连续可恢复错误也有暂停退避；其他未分类的 accept 错误和监听登记操作失败仍按服务器级错误清理并退出。
 
 后续工程改进重点包括集中配置、访问日志补全，以及用 RAII 简化描述符所有权和错误清理。

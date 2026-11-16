@@ -2,6 +2,7 @@
 // 不参与服务器的正常构建；未设置相应环境变量时调用原始系统接口。
 #include <atomic>
 #include <cerrno>
+#include <climits>
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
@@ -126,6 +127,7 @@ extern "C" int accept(int fd, sockaddr* address, socklen_t* length) {
         if (!std::getenv("CPP_EPOLL_TEST_ACCEPT_COUNT")) return false;
         return std::atexit(saveAcceptedCount) == 0;
     }();
+    traceAccept("accept_call", 0);
     static std::atomic<bool> injected{false};
     if (enabled("CPP_TCP_TEST_EINTR") && !injected.exchange(true)) {
         trace("ACCEPT_EINTR\n");
@@ -133,6 +135,8 @@ extern "C" int accept(int fd, sockaddr* address, socklen_t* length) {
         return -1;
     }
     static const char* errorSetting = std::getenv("CPP_EPOLL_TEST_ACCEPT_ERROR");
+    // Test-only script: positive entries inject errno; zero calls real accept().
+    static const char* sequence = std::getenv("CPP_EPOLL_TEST_ACCEPT_SEQUENCE");
     static const int repeatCount = [] {
         const char* value = std::getenv("CPP_EPOLL_TEST_ACCEPT_REPEATS");
         return value ? std::atoi(value) : 1;
@@ -140,17 +144,39 @@ extern "C" int accept(int fd, sockaddr* address, socklen_t* length) {
     static bool acceptedOne = false;
     static int faultCount = 0;
     // Inject only after an existing client is managed and another is actually queued.
-    if (errorSetting && acceptedOne && faultCount < repeatCount) {
+    if (acceptedOne && ((sequence && *sequence) || (errorSetting && faultCount < repeatCount))) {
         pollfd pending{fd, POLLIN, 0};
         if (poll(&pending, 1, 0) > 0 && (pending.revents & POLLIN)) {
-            ++faultCount;
-            const int error = std::atoi(errorSetting);
-            traceAccept("accept_error", error);
-            errno = error;
-            return -1;
+            int error = 0;
+            if (sequence && *sequence) {
+                char* end = nullptr;
+                const int saved = errno;
+                errno = 0;
+                const long value = std::strtol(sequence, &end, 10);
+                const bool valid = errno == 0 && end != sequence && value >= 0 && value <= INT_MAX
+                                   && (*end == '\0' || (*end == ',' && end[1] != '\0'));
+                errno = saved;
+                if (!valid) {
+                    trace("SHIM_FAILURE\n");
+                    errno = EINVAL;
+                    return -1;
+                }
+                sequence = *end == ',' ? end + 1 : end;
+                error = static_cast<int>(value);
+                traceAccept("accept_step", error);
+            } else {
+                ++faultCount;
+                error = std::atoi(errorSetting);
+            }
+            if (error > 0) {
+                traceAccept("accept_error", error);
+                errno = error;
+                return -1;
+            }
         }
     }
     const int client = real(fd, address, length);
+    traceAccept("accept_result", client >= 0 ? client : -errno);
     if (client >= 0) acceptedOne = true;
     if (client >= 0 && countEnabled) ++acceptedCount;
     if (client >= 0 && enabled("CPP_TCP_TEST_SMALL_SNDBUF")) {
@@ -212,6 +238,7 @@ extern "C" ssize_t send(int fd, const void* buffer, size_t length, int flags) {
 extern "C" int epoll_wait(int fd, epoll_event* events, int count, int timeout) {
     using Function = int (*)(int, epoll_event*, int, int);
     static const auto real = reinterpret_cast<Function>(dlsym(RTLD_NEXT, "epoll_wait"));
+    traceAccept("wait_begin", 0);
     static std::atomic<bool> injected{false};
     if (enabled("CPP_EPOLL_TEST_WAIT_EINTR") && !injected.exchange(true)) {
         trace("EPOLL_WAIT_EINTR\n");

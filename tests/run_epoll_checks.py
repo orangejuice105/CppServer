@@ -465,6 +465,7 @@ def main():
                 configuration=dict(mode='nonblocking LT epoll',receive_idle_seconds=30,send_idle_seconds=30,request_head_seconds=60,
                                    drain_total_seconds=1,drain_idle_milliseconds=100,drain_max_bytes=65536,
                                    max_connections=1024,shutdown_grace_seconds=5,accept_retry_seconds=1,
+                                   max_accept_calls_per_event=32,max_consecutive_accept_errors=32,
                                    logger_time_fallback='time-unavailable'),
                 isolation='Fresh assertions/UBSan build for regular and injected-fault checks; cold-start real fd exhaustion uses a separately built assertions/Release main because GCC 11 UBSan vptr checking itself needs pipe descriptors. Only test-child bind is redirected to temporary loopback ports. Original deadlines unchanged; owned processes only. Faults and enlarged response fixtures are recorded per group.')
     def run_group(name):

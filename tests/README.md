@@ -24,7 +24,7 @@ python3 tests/run_epoll_checks.py --report tests/reports/epoll-latest.json
 | `capacity` | 1024 个真实等待连接；额外 101 个连接被拒绝；只在拒绝计数 1、100 时告警；释放一个名额后恢复服务并回收 fd |
 | `request-logging` | 合法和格式错误的请求携带人工生成的查询参数、Authorization、Cookie 和其他字段标记，确认日志不输出这些值，保留方法、路径、版本和 fd |
 | `graceful-shutdown` | 真实 SIGINT/SIGTERM、已有请求完成、停止接收新连接、重复信号、真实 5 秒退出期限、真实发送背压；显式标记的信号 read/ADD 和监听 DEL 故障注入 |
-| `accept-recovery` | 18 项：正常对照、9 种连接/网络错误、EMFILE/ENFILE、连续三次资源不足、暂停期间真实 SIGINT/SIGTERM、暂停 DEL/恢复 ADD 失败，以及子进程真实耗尽 64 个 fd 后释放连接并恢复服务；记录单调时钟重试间隔 |
+| `accept-recovery` | 39 项：正常对照、9 种连接/网络错误、EMFILE/ENFILE/ENOBUFS/ENOMEM、重复资源不足；连续错误 31/32/65 次边界、混合错误、成功/EAGAIN/资源暂停后清零、每轮最多 32 次调用；资源或连续错误暂停期间的真实 SIGINT/SIGTERM、暂停 DEL/恢复 ADD 失败，以及子进程真实耗尽 64 个 fd 后释放连接并恢复服务；记录单调时钟重试间隔 |
 | `logger-time` | 3 项：正常本地时间、显式注入 localtime_r 失败及随后恢复；调用真实日志队列和析构，检查占位时间、正文和正常日志全部落盘 |
 | `receive-timeout` | 真实 30 秒空闲期限；空连接、不完整请求行、GET、HEAD、HTTP/1.0 部分请求头 |
 | `request-deadline` | 真实 60 秒固定请求头期限；每隔 20 秒发送片段仍超时，另一个请求在第 50 秒补齐后正常响应 |
@@ -46,7 +46,8 @@ python3 tests/run_epoll_checks.py --only send-timeout
 
 - HTTP 回归、生命周期、并发、超限以及接收期限使用原始生产 `main`；辅助函数检查调用当前 epoll 实现，旧 `handleClient/sendAll` 不作为当前版本通过依据。
 - 正常网络检查仅映射临时端口，不伪造收发返回值。`faults` 及严重错误清理组明确注入故障，不能解释为真实信号或资源耗尽测试。
-- `accept-recovery` 的模拟错误与真实资源耗尽分别标记。真实资源耗尽只将一个服务器子进程的 `RLIMIT_NOFILE` 设为 64；等待第二次真实 EMFILE，验证已有请求仍能响应，释放 fd 后等待连接可以接入。测试主进程和用户终端的限制保持原样；ENFILE 使用注入，不耗尽整机资源。
+- `accept-recovery` 的模拟错误与真实资源耗尽分别标记。真实资源耗尽只将一个服务器子进程的 `RLIMIT_NOFILE` 设为 64；等待第二次真实 EMFILE，验证已有请求仍能响应，释放 fd 后等待连接可以接入。测试主进程和用户终端的限制保持原样；ENFILE/ENOBUFS/ENOMEM 使用注入，不实际耗尽整机文件或内存资源。
+- 连续错误使用测试专用有序结果序列，正整数注入对应 errno，0 调用真实 accept 并核对成功。成功清零场景用 SIGSTOP/SIGCONT 在准备阶段一次排入两个客户端，避免中途真实 EAGAIN 掩盖缺失的成功清零；EAGAIN 清零另用显式注入验证。记录 epoll_wait 边界和全部 accept 调用，核对单轮不超过 32 次，以及暂停期间没有继续调用 accept。信号退出和恢复后的 HTTP 响应均使用真实进程与 TCP。
 - GCC 11 的 UBSan vptr 检查会申请 pipe；fd 完全耗尽时，检测工具可能把有效的标准库对象报告为无效。已用独立最小程序对比无检测、首次执行、预热和释放两个 fd 的行为，记录见 [诊断报告](reports/ubsan-fd-diagnostic-2026-11-15.json)。真实耗尽使用未插入 UBSan 的生产 Release 构建，其余检查保留 UBSan；没有全局关闭检测或忽略 stderr。
 - `logger-time` 仅通过测试目标的链接包装令 localtime_r 返回空指针，不更改系统时间，也不将该包装加入生产服务器。测试进程正常退出后检查文件，验证后台日志已完成落盘。
 - 生产路由响应很短，通常不会填满发送缓冲区。发送专项使用单独的测试可执行文件，将带 `X-Test-Large: 1` 的 `/hello` 响应正文扩大为 8 MiB，沿用真实入口、收发函数、事件循环和原来的 30 秒期限。生产路由和源码保持不变；没有伪造时钟或 EAGAIN。
@@ -57,7 +58,7 @@ python3 tests/run_epoll_checks.py --only send-timeout
 - 停止接收阶段只从 epoll 删除监听登记，监听 fd 在退出时关闭；这期间 TCP 握手仍可能成功，验收要求新连接不再被应用接收和处理。
 - `graceful-shutdown` 的 8 MiB 响应仅用于真实发送背压。到达退出期限后允许未完成响应被截断，并要求记录剩余连接数量；这与期限内完成的完整响应分别检查。
 
-2026-11-15 的 16 组完整验收见 [RECOVERY_BASELINE.md](RECOVERY_BASELINE.md)，原始报告为 [reports/epoll-recovery-2026-11-15.json](reports/epoll-recovery-2026-11-15.json)。2026-11-14 的 14 组记录见 [HARDENING_BASELINE.md](HARDENING_BASELINE.md)，基础 epoll 历史验收见 [EPOLL_BASELINE.md](EPOLL_BASELINE.md)；各次结果只对应各自报告中的输入哈希。
+2026-11-16 的最新 16 组完整验收见 [ACCEPT_BACKOFF_BASELINE.md](ACCEPT_BACKOFF_BASELINE.md)，原始报告为 [reports/epoll-accept-backoff-2026-11-16.json](reports/epoll-accept-backoff-2026-11-16.json)。2026-11-15 的 18 项 accept 恢复版本保留在 [RECOVERY_BASELINE.md](RECOVERY_BASELINE.md)，2026-11-14 的 14 组记录见 [HARDENING_BASELINE.md](HARDENING_BASELINE.md)，基础 epoll 历史验收见 [EPOLL_BASELINE.md](EPOLL_BASELINE.md)；各次结果只对应各自报告中的输入哈希。
 
 ## 独立性能测试
 

@@ -1,0 +1,3495 @@
+{
+  "started_at": "2026-11-16T06:17:54.397785+00:00",
+  "artifacts": "/tmp/cppserver-epoll-checks-zo7nhf__",
+  "selected_groups": [
+    "regression",
+    "helpers",
+    "lifecycle",
+    "concurrency",
+    "faults",
+    "draining",
+    "oversize",
+    "fatal-cleanup",
+    "capacity",
+    "request-logging",
+    "graceful-shutdown",
+    "accept-recovery",
+    "logger-time",
+    "receive-timeout",
+    "request-deadline",
+    "send-timeout"
+  ],
+  "source_before": {
+    "CMakeLists.txt": "dd263cb6a71f10830c3ccd36cab1516ee7461f992729a1e72bd2173b0b91be95",
+    "src/http_request.cpp": "09d34beb7a1a9009d85d4da946319d60f822929b98f54a8eec6b33fa75beb9a3",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/http_router.cpp": "6bb4cb0c91699efbd546c4acaa26ca64417c95f91c346d42bfeb109c9f1176bf",
+    "src/logger.cpp": "89873ae5dda8db5b7aa33e8f7b9c552b5ec3898d936731f78ce712e486277d6d",
+    "src/main.cpp": "9f76abfbc2918ddf4327a364941c00beaccff1eb780495fb2aa49ade81c86643",
+    "src/tcp_connection.cpp": "a2a021ef3b586ab50e3db49f1271298fd291fbee2e5f4bf3da48486486902fd6",
+    "src/tcp_server.cpp": "8ecad039b2d317c0567e583f4498f7ab34e5057bc3b91e8e66bf9e19e812747e",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332",
+    "include/http_request.h": "c309682160e20b38419a439395265e2b83cec9b68025a5ad4a800778714a1650",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/http_router.h": "496c22f5c890d69576ff5d942d8cab157890cef88c071217ca3c0359beb2d9a5",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "c00c5290cdb1774c34835cd6bbd11fcfa176541b131cb76a4194818c8555dfa8",
+    "include/tcp_server.h": "7b58acb3dd096dfabb557df202bfa6ae086b923e5d3edcbd0db039a07d6cddbe",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "tests/epoll_connection_checks.cpp": "a9c1bb895c455fa8724760b0f4d58a2c51bf09134b44abd2a3dd20c673c2c2c9",
+    "tests/epoll_response_fixture.cpp": "370ef5d52ea907bfb225579e2bd5c2770de1dad93a1c77d453d38912560cb9d3",
+    "tests/epoll_send_checks.cpp": "8fef5366277445cecd827e715a44986ac1648cc1177c355fed595f42cb3a56c8",
+    "tests/epoll_server_fault_checks.cpp": "b24ad746a6329c33fa326b87f4f35ec3b56c7dfb2f797255a4bf5c6d21b93ef5",
+    "tests/logger_stats_probe.cpp": "872d5cada178962bfc58bef3e5be17fade84bdbb1c231b6ae65c92fc5282ee5a",
+    "tests/logger_time_checks.cpp": "d4bd01ee51c6abad2f2c1581ad103fd30080f5ebe6ecffb8828f4587fb3bc337",
+    "tests/socket_test_shim.cpp": "7c2b0a5ab6b4232f34909c0c2acfce21f7b9efe501a64398b8650fb4d31b0b62",
+    "tests/accept_recovery_checks.py": "c3d111ba5584fa584486949735c4dee089bddf41c0d216096ab022bdfe483a1e",
+    "tests/epoll_hardening_checks.py": "78415e4be5e89b7b03952e272e9e7f5aa18c3b4b26c5807b9e33c95f535bd162",
+    "tests/http_test_support.py": "d423f73eed290926817e28bb65230ed0d6df25db01b65cb006a1d5c5c1575703",
+    "tests/run_epoll_benchmark.py": "a68b87c09f06439dd4afcd7e9fa30e93a6e56324ed38bfba6320508b93ae7320",
+    "tests/run_epoll_checks.py": "3219ec0e3d328ce6b9e11940cb52bb5a7a7ffeb5f14415dad7ab91af573a2c89",
+    "tests/http_cases.json": "58ace328ad46990a72470f099d2aea85b0db639c6000fa24302f5dd59b493a17"
+  },
+  "results": [
+    {
+      "name": "regression",
+      "passed": true,
+      "details": {
+        "passed_cases": 122,
+        "total_cases": 122,
+        "cases": [
+          {
+            "name": "ordinary-hello",
+            "passed": true,
+            "seconds": 0.00204
+          },
+          {
+            "name": "ordinary-health",
+            "passed": true,
+            "seconds": 0.00063
+          },
+          {
+            "name": "ordinary-query",
+            "passed": true,
+            "seconds": 0.00081
+          },
+          {
+            "name": "ordinary-missing",
+            "passed": true,
+            "seconds": 0.0008
+          },
+          {
+            "name": "ordinary-post",
+            "passed": true,
+            "seconds": 0.00048
+          },
+          {
+            "name": "ordinary-unknown-method",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "ordinary-head",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "http10-without-host",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "zero-content-length",
+            "passed": true,
+            "seconds": 0.00079
+          },
+          {
+            "name": "nonzero-content-length",
+            "passed": true,
+            "seconds": 0.0004
+          },
+          {
+            "name": "invalid-content-length",
+            "passed": true,
+            "seconds": 0.00057
+          },
+          {
+            "name": "duplicate-content-length",
+            "passed": true,
+            "seconds": 0.00049
+          },
+          {
+            "name": "te-gzip-missing-chunked",
+            "passed": true,
+            "seconds": 0.0008
+          },
+          {
+            "name": "te-chunked-not-last",
+            "passed": true,
+            "seconds": 0.00048
+          },
+          {
+            "name": "te-adjacent-duplicate",
+            "passed": true,
+            "seconds": 0.00064
+          },
+          {
+            "name": "te-duplicate-across-fields",
+            "passed": true,
+            "seconds": 0.00046
+          },
+          {
+            "name": "te-empty",
+            "passed": true,
+            "seconds": 0.00061
+          },
+          {
+            "name": "te-comma-only",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "te-unclosed-quote",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "te-missing-parameter-value",
+            "passed": true,
+            "seconds": 0.00062
+          },
+          {
+            "name": "te-forbidden-chunked-parameter",
+            "passed": true,
+            "seconds": 0.00045
+          },
+          {
+            "name": "te-forbidden-gzip-parameter",
+            "passed": true,
+            "seconds": 0.00072
+          },
+          {
+            "name": "te-invalid-name",
+            "passed": true,
+            "seconds": 0.00043
+          },
+          {
+            "name": "te-valid-chunked-not-implemented",
+            "passed": true,
+            "seconds": 0.00045
+          },
+          {
+            "name": "te-valid-gzip-chunked-not-implemented",
+            "passed": true,
+            "seconds": 0.00051
+          },
+          {
+            "name": "te-mixed-case",
+            "passed": true,
+            "seconds": 0.00069
+          },
+          {
+            "name": "te-valid-repeated-fields",
+            "passed": true,
+            "seconds": 0.00075
+          },
+          {
+            "name": "te-valid-quoted-comma",
+            "passed": true,
+            "seconds": 0.00042
+          },
+          {
+            "name": "te-valid-escaped-quote",
+            "passed": true,
+            "seconds": 0.00079
+          },
+          {
+            "name": "te-empty-first-field",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "te-empty-list-members",
+            "passed": true,
+            "seconds": 0.00063
+          },
+          {
+            "name": "te-zero-chunk-body-not-decoded",
+            "passed": true,
+            "seconds": 0.00058
+          },
+          {
+            "name": "te-split-head",
+            "passed": true,
+            "seconds": 0.16256
+          },
+          {
+            "name": "te-and-cl-conflict",
+            "passed": true,
+            "seconds": 0.00048
+          },
+          {
+            "name": "te-malformed-and-cl-conflict-priority",
+            "passed": true,
+            "seconds": 0.00073
+          },
+          {
+            "name": "http10-te-rejected-first",
+            "passed": true,
+            "seconds": 0.00069
+          },
+          {
+            "name": "unsupported-major-version-priority",
+            "passed": true,
+            "seconds": 0.00056
+          },
+          {
+            "name": "missing-host-priority",
+            "passed": true,
+            "seconds": 0.00044
+          },
+          {
+            "name": "head-valid-te-no-body",
+            "passed": true,
+            "seconds": 0.00042
+          },
+          {
+            "name": "head-invalid-te-no-body",
+            "passed": true,
+            "seconds": 0.00037
+          },
+          {
+            "name": "ordinary-get-after-errors",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "router-known-put",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "router-known-delete",
+            "passed": true,
+            "seconds": 0.00047
+          },
+          {
+            "name": "router-known-options",
+            "passed": true,
+            "seconds": 0.0004
+          },
+          {
+            "name": "router-known-trace",
+            "passed": true,
+            "seconds": 0.00051
+          },
+          {
+            "name": "router-known-patch",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "router-connect",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "router-options-star",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "router-absolute-query",
+            "passed": true,
+            "seconds": 0.00044
+          },
+          {
+            "name": "validation-before-router-missing-host",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "validation-before-router-request-body",
+            "passed": true,
+            "seconds": 0.00041
+          },
+          {
+            "name": "malformed-head-keeps-no-body",
+            "passed": true,
+            "seconds": 0.00044
+          },
+          {
+            "name": "router-http10-head",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "limit-complete-get-8191-accepted",
+            "passed": true,
+            "seconds": 0.00063
+          },
+          {
+            "name": "limit-complete-get-8192-accepted",
+            "passed": true,
+            "seconds": 0.0005
+          },
+          {
+            "name": "limit-complete-head-8192-accepted",
+            "passed": true,
+            "seconds": 0.00049
+          },
+          {
+            "name": "limit-complete-http10-8192-accepted",
+            "passed": true,
+            "seconds": 0.00053
+          },
+          {
+            "name": "limit-HTTP-1-1-GET-incomplete-8192",
+            "passed": true,
+            "seconds": 0.00064
+          },
+          {
+            "name": "limit-HTTP-1-1-GET-complete-8193",
+            "passed": true,
+            "seconds": 0.1513
+          },
+          {
+            "name": "limit-HTTP-1-1-HEAD-incomplete-8192",
+            "passed": true,
+            "seconds": 0.00053
+          },
+          {
+            "name": "limit-HTTP-1-1-HEAD-complete-8193",
+            "passed": true,
+            "seconds": 0.15313
+          },
+          {
+            "name": "limit-HTTP-1-0-GET-incomplete-8192",
+            "passed": true,
+            "seconds": 0.00059
+          },
+          {
+            "name": "limit-HTTP-1-0-GET-complete-8193",
+            "passed": true,
+            "seconds": 0.16283
+          },
+          {
+            "name": "limit-HTTP-1-0-HEAD-incomplete-8192",
+            "passed": true,
+            "seconds": 0.001
+          },
+          {
+            "name": "limit-HTTP-1-0-HEAD-complete-8193",
+            "passed": true,
+            "seconds": 0.16206
+          },
+          {
+            "name": "limit-no-request-line-terminator",
+            "passed": true,
+            "seconds": 0.00064
+          },
+          {
+            "name": "limit-overlong-complete-request-line",
+            "passed": true,
+            "seconds": 0.00067
+          },
+          {
+            "name": "limit-malformed-request-line",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "ordinary-health-after-limit-errors",
+            "passed": true,
+            "seconds": 0.00039
+          },
+          {
+            "name": "eof-get-missing-final-empty-line",
+            "passed": true,
+            "seconds": 0.00061
+          },
+          {
+            "name": "eof-head-no-response-body",
+            "passed": true,
+            "seconds": 0.00035
+          },
+          {
+            "name": "eof-http10-get-preserves-version",
+            "passed": true,
+            "seconds": 0.00033
+          },
+          {
+            "name": "eof-http10-head-preserves-version",
+            "passed": true,
+            "seconds": 0.00042
+          },
+          {
+            "name": "eof-request-line-only",
+            "passed": true,
+            "seconds": 0.00061
+          },
+          {
+            "name": "eof-incomplete-header-field-line",
+            "passed": true,
+            "seconds": 0.00036
+          },
+          {
+            "name": "eof-empty-connection",
+            "passed": true,
+            "seconds": 0.00024
+          },
+          {
+            "name": "eof-incomplete-request-line",
+            "passed": true,
+            "seconds": 0.00032
+          },
+          {
+            "name": "eof-malformed-head-request-line",
+            "passed": true,
+            "seconds": 0.00033
+          },
+          {
+            "name": "eof-complete-get-remains-200",
+            "passed": true,
+            "seconds": 0.00047
+          },
+          {
+            "name": "eof-complete-head-remains-405",
+            "passed": true,
+            "seconds": 0.0007
+          },
+          {
+            "name": "eof-split-incomplete-head",
+            "passed": true,
+            "seconds": 0.1559
+          },
+          {
+            "name": "health-after-eof-cases",
+            "passed": true,
+            "seconds": 0.00063
+          },
+          {
+            "name": "uri-origin-4096-routes-to-404",
+            "passed": true,
+            "seconds": 0.00073
+          },
+          {
+            "name": "uri-origin-4097-returns-414",
+            "passed": true,
+            "seconds": 0.00077
+          },
+          {
+            "name": "uri-head-4096-retains-405",
+            "passed": true,
+            "seconds": 0.00093
+          },
+          {
+            "name": "uri-head-4097-414-without-body",
+            "passed": true,
+            "seconds": 0.00089
+          },
+          {
+            "name": "uri-http10-4097-preserves-version",
+            "passed": true,
+            "seconds": 0.00117
+          },
+          {
+            "name": "uri-query-4096-still-routes-hello",
+            "passed": true,
+            "seconds": 0.00063
+          },
+          {
+            "name": "uri-query-4097-returns-414",
+            "passed": true,
+            "seconds": 0.0013
+          },
+          {
+            "name": "uri-absolute-4096-routes-to-404",
+            "passed": true,
+            "seconds": 0.00088
+          },
+          {
+            "name": "uri-absolute-4097-counts-entire-target",
+            "passed": true,
+            "seconds": 0.00079
+          },
+          {
+            "name": "uri-split-4097-returns-414",
+            "passed": true,
+            "seconds": 0.16276
+          },
+          {
+            "name": "uri-invalid-percent-stays-400",
+            "passed": true,
+            "seconds": 0.0007
+          },
+          {
+            "name": "uri-overlong-target-precedes-malformed-header",
+            "passed": true,
+            "seconds": 0.00079
+          },
+          {
+            "name": "health-after-uri-errors",
+            "passed": true,
+            "seconds": 0.00043
+          },
+          {
+            "name": "early-get-line-only-no-half-close",
+            "passed": true,
+            "seconds": 0.0008
+          },
+          {
+            "name": "early-head-line-only-no-body",
+            "passed": true,
+            "seconds": 0.00072
+          },
+          {
+            "name": "early-http10-get-preserves-version",
+            "passed": true,
+            "seconds": 0.00084
+          },
+          {
+            "name": "early-http10-head-preserves-version",
+            "passed": true,
+            "seconds": 0.00115
+          },
+          {
+            "name": "early-query-counts-entire-target",
+            "passed": true,
+            "seconds": 0.00073
+          },
+          {
+            "name": "early-absolute-counts-entire-target",
+            "passed": true,
+            "seconds": 0.00093
+          },
+          {
+            "name": "early-get-4096-waits-for-headers-then-404",
+            "passed": true,
+            "seconds": 0.15113
+          },
+          {
+            "name": "early-head-4096-waits-for-headers-then-405",
+            "passed": true,
+            "seconds": 0.16081
+          },
+          {
+            "name": "partial-rejects-before-final-lf",
+            "passed": true,
+            "seconds": 0.00105
+          },
+          {
+            "name": "early-unsupported-major-retains-505",
+            "passed": true,
+            "seconds": 0.16054
+          },
+          {
+            "name": "early-request-line-exactly-8192-returns-414",
+            "passed": true,
+            "seconds": 0.00095
+          },
+          {
+            "name": "health-after-early-target-cases",
+            "passed": true,
+            "seconds": 0.00038
+          },
+          {
+            "name": "partial-get-4097-no-version-no-crlf",
+            "passed": true,
+            "seconds": 0.00063
+          },
+          {
+            "name": "partial-head-4097-no-body",
+            "passed": true,
+            "seconds": 0.00061
+          },
+          {
+            "name": "partial-query-4097",
+            "passed": true,
+            "seconds": 0.00099
+          },
+          {
+            "name": "partial-absolute-target-4097",
+            "passed": true,
+            "seconds": 0.00061
+          },
+          {
+            "name": "partial-get-4096-waits-then-404",
+            "passed": true,
+            "seconds": 0.16167
+          },
+          {
+            "name": "partial-head-4096-waits-then-405",
+            "passed": true,
+            "seconds": 0.15416
+          },
+          {
+            "name": "partial-query-4096-waits-then-200",
+            "passed": true,
+            "seconds": 0.15149
+          },
+          {
+            "name": "partial-crosses-4096-to-4097",
+            "passed": true,
+            "seconds": 0.15176
+          },
+          {
+            "name": "partial-empty-target-waits-then-hello",
+            "passed": true,
+            "seconds": 0.16286
+          },
+          {
+            "name": "partial-invalid-method-does-not-trigger-414",
+            "passed": true,
+            "seconds": 0.16246
+          },
+          {
+            "name": "partial-long-method-is-not-a-long-target",
+            "passed": true,
+            "seconds": 0.00043
+          },
+          {
+            "name": "partial-default-version-with-incomplete-version",
+            "passed": true,
+            "seconds": 0.00084
+          },
+          {
+            "name": "buffered-large-prefix-delayed-read",
+            "passed": true,
+            "seconds": 0.2112
+          },
+          {
+            "name": "buffered-head-large-prefix-delayed-read",
+            "passed": true,
+            "seconds": 0.20206
+          },
+          {
+            "name": "health-after-partial-target-cases",
+            "passed": true,
+            "seconds": 0.00056
+          }
+        ],
+        "comparison": "All original status/header/body bytes; Date independently validated in UTC with server TZ America/New_York. Obsolete blocking-only EOF/status logs replaced by wire assertions; current parser and target rejection logs retained."
+      },
+      "seconds": 3.061921
+    },
+    {
+      "name": "helpers",
+      "passed": true,
+      "details": {
+        "passed_cases": 14,
+        "cases": [
+          "PASS expired-before-send",
+          "PASS complete-response-bytes",
+          "PASS real-EAGAIN-preserves-deadline",
+          "PASS real-partial-send-renews-deadline",
+          "PASS completed-response-keeps-complete-result",
+          "PASS injected-EINTR-preserves-deadline",
+          "PASS real-receive-EAGAIN-keeps-deadlines",
+          "PASS real-split-receive-preserves-total-deadline",
+          "PASS injected-receive-EINTR-retries",
+          "PASS expired-HEAD-http10-response",
+          "PASS expired-receive-does-not-consume-or-renew",
+          "PASS incomplete-header-EOF-prepares-400",
+          "PASS real-epoll-receive-send-drain-release",
+          "PASS drain-byte-limit-and-repeat-preserve-state"
+        ],
+        "scope": "Production receive/send/drain/event functions, real nonblocking socketpair and epoll; prepared expired timestamps for boundary checks, injected recv/send EINTR. Real long deadlines tested separately."
+      },
+      "seconds": 0.00497
+    },
+    {
+      "name": "lifecycle",
+      "passed": true,
+      "details": {
+        "repeated_connections": 40,
+        "empty_eof": true,
+        "half_close": true,
+        "real_tcp_reset": true,
+        "bind_conflict_logged": true,
+        "baseline_fds": 7,
+        "final_fds": 7
+      },
+      "seconds": 0.061833
+    },
+    {
+      "name": "concurrency",
+      "passed": true,
+      "details": {
+        "held_connections": 80,
+        "independent_request_seconds": 0.00046128099995712546,
+        "burst_requests": 200,
+        "burst_concurrency": 16,
+        "event_loop_thread_ids": [
+          "131433065666432"
+        ],
+        "baseline_fds": 7,
+        "final_fds": 7
+      },
+      "seconds": 3.276226
+    },
+    {
+      "name": "faults",
+      "passed": true,
+      "details": {
+        "cases": [
+          {
+            "name": "interrupts",
+            "injected": true,
+            "events": [
+              "ACCEPT_EINTR",
+              "RECV_EINTR",
+              "SEND_EINTR",
+              "PARTIAL_SEND",
+              "EPOLL_WAIT_EINTR"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "recv-again",
+            "injected": true,
+            "events": [
+              "RECV_EAGAIN"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "send-again",
+            "injected": true,
+            "events": [
+              "SEND_EAGAIN"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "add-fail",
+            "injected": true,
+            "events": [
+              "CLIENT_ADD_FAIL"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "mod-fail",
+            "injected": true,
+            "events": [
+              "CLIENT_MOD_FAIL"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "del-fail",
+            "injected": true,
+            "events": [
+              "CLIENT_DEL_FAIL"
+            ],
+            "recovered_fds": 7
+          },
+          {
+            "name": "shutdown-fail",
+            "injected": true,
+            "events": [
+              "SHUTDOWN_FAIL"
+            ],
+            "recovered_fds": 7
+          }
+        ],
+        "scope": "Explicit syscall-return injection; no real signal delivery or resource exhaustion claimed."
+      },
+      "seconds": 0.202886
+    },
+    {
+      "name": "draining",
+      "passed": true,
+      "details": {
+        "quiet_drain_release_seconds": 0.11282116199998882,
+        "total_deadline_seconds": 1.0362248580000255,
+        "trickle_writes": 40,
+        "byte_limit_exercised": true,
+        "final_fds": 7
+      },
+      "seconds": 1.184856
+    },
+    {
+      "name": "oversize",
+      "passed": true,
+      "details": {
+        "total_cases": 20,
+        "cases": [
+          {
+            "method": "GET",
+            "target_bytes": 4096,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.01190763900001457
+          },
+          {
+            "method": "GET",
+            "target_bytes": 4096,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.021212117000004582
+          },
+          {
+            "method": "GET",
+            "target_bytes": 4097,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011523145000012391
+          },
+          {
+            "method": "GET",
+            "target_bytes": 4097,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.02239948299995831
+          },
+          {
+            "method": "GET",
+            "target_bytes": 8193,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.010914497999976902
+          },
+          {
+            "method": "GET",
+            "target_bytes": 8193,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.02214308500003881
+          },
+          {
+            "method": "GET",
+            "target_bytes": 16384,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.010853502999964348
+          },
+          {
+            "method": "GET",
+            "target_bytes": 16384,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.031766392000008636
+          },
+          {
+            "method": "GET",
+            "target_bytes": 1048576,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [
+              32
+            ],
+            "seconds": 0.0013346080000360416
+          },
+          {
+            "method": "GET",
+            "target_bytes": 1048576,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.0322748469999965
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4096,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011151603000030264
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4096,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.033054224000011345
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4097,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.010973497999998472
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 4097,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.02130406999998513
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 8193,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.011197275999961676
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 8193,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.021425304000047163
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 16384,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.010911464999992404
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 16384,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.03249642200000835
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 1048576,
+            "split": false,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [
+              32
+            ],
+            "seconds": 0.0009849790000089342
+          },
+          {
+            "method": "HEAD",
+            "target_bytes": 1048576,
+            "split": true,
+            "http_complete": true,
+            "termination": "eof",
+            "send_errors": [],
+            "seconds": 0.022112189999972998
+          }
+        ],
+        "policy": "Always require a complete HTTP response. Record EOF/RST separately; bounded cleanup can cause RST on excessive remaining input."
+      },
+      "seconds": 0.371115
+    },
+    {
+      "name": "fatal-cleanup",
+      "passed": true,
+      "details": {
+        "cases": [
+          {
+            "name": "empty",
+            "output": "PASS empty clients=0 returned_without_open_fds=true"
+          },
+          {
+            "name": "wait-fatal",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS wait-fatal clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "listener-error",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS listener-error clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "accept-fatal",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS accept-fatal clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "delete-failure",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS delete-failure clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "close-eintr",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS close-eintr clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "pause-del-failure",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS pause-del-failure clients=3 returned_without_open_fds=true"
+          },
+          {
+            "name": "resume-add-failure",
+            "output": "socket创建成功,fd = 5\n绑定成功\n开始监听,等待客户端连接\nPASS resume-add-failure clients=3 returned_without_open_fds=true"
+          }
+        ],
+        "scope": "Real TCP clients, injected fatal paths (accept uses EBADF, not recoverable EMFILE); verify client/listener/epoll fds before the test process exits. Injected close EINTR follows an actual successful close and must not be retried."
+      },
+      "seconds": 1.096296
+    },
+    {
+      "name": "capacity",
+      "passed": true,
+      "details": {
+        "limit": 1024,
+        "rejected_connections": 101,
+        "rejection_endings": [
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof",
+          "eof"
+        ],
+        "warning_counts": [
+          1,
+          100
+        ],
+        "replacement_request_passed": true,
+        "baseline_fds": 7,
+        "final_fds": 7
+      },
+      "seconds": 0.50961
+    },
+    {
+      "name": "request-logging",
+      "passed": true,
+      "details": {
+        "valid_and_malformed_requests": true,
+        "synthetic_secret_markers": 4,
+        "query_authorization_cookie_and_header_values_absent": true,
+        "method_path_version_fd_present": true,
+        "logs_flushed_on_exit": true
+      },
+      "seconds": 0.014403
+    },
+    {
+      "name": "graceful-shutdown",
+      "passed": true,
+      "details": {
+        "actual_signals": true,
+        "grace_seconds": 5,
+        "cases": [
+          {
+            "name": "idle-SIGINT",
+            "exit_code": 0,
+            "seconds": 0.001370792999978221
+          },
+          {
+            "name": "idle-SIGTERM",
+            "exit_code": 0,
+            "seconds": 0.0013512770000261298
+          },
+          {
+            "name": "finish-existing-and-repeat",
+            "completed_responses": 2,
+            "late_client_processed": false,
+            "repeated_signal_passed": true,
+            "exit_code": 0
+          },
+          {
+            "name": "peer-write-direction-open",
+            "seconds": 0.1181204149999644,
+            "exit_code": 0
+          },
+          {
+            "name": "receive-deadline",
+            "seconds": 5.096480676999988,
+            "repeated_after_seconds": null,
+            "exit_code": 0
+          },
+          {
+            "name": "receive-deadline-repeat",
+            "seconds": 5.0769301339999515,
+            "repeated_after_seconds": 2,
+            "exit_code": 0
+          },
+          {
+            "name": "real-backpressured-send",
+            "seconds": 5.09743256400003,
+            "exit_code": 0,
+            "response_bytes": 8388749,
+            "accepted_before_stop": 12288,
+            "received_bytes": 12288,
+            "complete_response": false,
+            "scope": "Test-only 8 MiB response; production IO, clocks and shutdown policy"
+          },
+          {
+            "name": "injected-signal-read-eintr",
+            "exit_code": 0,
+            "injected": true
+          },
+          {
+            "name": "injected-signal-read-again",
+            "exit_code": 0,
+            "injected": true
+          },
+          {
+            "name": "injected-signal-read-error",
+            "exit_code": 1,
+            "injected": true
+          },
+          {
+            "name": "injected-signal-read-short",
+            "exit_code": 1,
+            "injected": true
+          },
+          {
+            "name": "injected-listener-del-failure",
+            "injected": true,
+            "exit_code": 1
+          },
+          {
+            "name": "injected-signal-add-failure",
+            "injected": true,
+            "exit_code": 1
+          }
+        ],
+        "scope": "Real SIGINT/SIGTERM, unmodified clocks and bounded shutdown. Syscall faults and the enlarged-response sending fixture are explicitly labeled. A TCP handshake can still complete against the underegistered listener; new clients must not be accepted or processed."
+      },
+      "seconds": 16.140577
+    },
+    {
+      "name": "accept-recovery",
+      "passed": true,
+      "details": {
+        "passed_cases": 39,
+        "cases": [
+          {
+            "name": "normal-control",
+            "injected": false,
+            "response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "ECONNABORTED",
+            "injected": true,
+            "errno": 103,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "ENETDOWN",
+            "injected": true,
+            "errno": 100,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "EPROTO",
+            "injected": true,
+            "errno": 71,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "ENOPROTOOPT",
+            "injected": true,
+            "errno": 92,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "EHOSTDOWN",
+            "injected": true,
+            "errno": 112,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "ENONET",
+            "injected": true,
+            "errno": 64,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "EHOSTUNREACH",
+            "injected": true,
+            "errno": 113,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "EOPNOTSUPP",
+            "injected": true,
+            "errno": 95,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "ENETUNREACH",
+            "injected": true,
+            "errno": 101,
+            "existing_response": 200,
+            "pending_response": 200,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-EMFILE-repeat-1",
+            "injected": true,
+            "errno": 24,
+            "injections": 1,
+            "existing_response_during_pause": 200,
+            "pending_response_after_resume": 200,
+            "fd_count_restored": true,
+            "exit_code": 0,
+            "retry_delays_seconds": [
+              1.044849
+            ]
+          },
+          {
+            "name": "accept-ENFILE-repeat-1",
+            "injected": true,
+            "errno": 23,
+            "injections": 1,
+            "existing_response_during_pause": 200,
+            "pending_response_after_resume": 200,
+            "fd_count_restored": true,
+            "exit_code": 0,
+            "retry_delays_seconds": [
+              1.034658
+            ]
+          },
+          {
+            "name": "accept-EMFILE-repeat-3",
+            "injected": true,
+            "errno": 24,
+            "injections": 3,
+            "existing_response_during_pause": 200,
+            "pending_response_after_resume": 200,
+            "fd_count_restored": true,
+            "exit_code": 0,
+            "retry_delays_seconds": [
+              1.053726,
+              1.019013,
+              1.034173
+            ]
+          },
+          {
+            "name": "accept-ENOBUFS-repeat-1",
+            "injected": true,
+            "errno": 105,
+            "injections": 1,
+            "existing_response_during_pause": 200,
+            "pending_response_after_resume": 200,
+            "fd_count_restored": true,
+            "exit_code": 0,
+            "retry_delays_seconds": [
+              1.035163
+            ]
+          },
+          {
+            "name": "accept-ENOMEM-repeat-1",
+            "injected": true,
+            "errno": 12,
+            "injections": 1,
+            "existing_response_during_pause": 200,
+            "pending_response_after_resume": 200,
+            "fd_count_restored": true,
+            "exit_code": 0,
+            "retry_delays_seconds": [
+              1.042862
+            ]
+          },
+          {
+            "name": "accept-ENOBUFS-repeat-3",
+            "injected": true,
+            "errno": 105,
+            "injections": 3,
+            "existing_response_during_pause": 200,
+            "pending_response_after_resume": 200,
+            "fd_count_restored": true,
+            "exit_code": 0,
+            "retry_delays_seconds": [
+              1.036973,
+              1.02828,
+              1.02485
+            ]
+          },
+          {
+            "name": "accept-ENOMEM-repeat-3",
+            "injected": true,
+            "errno": 12,
+            "injections": 3,
+            "existing_response_during_pause": 200,
+            "pending_response_after_resume": 200,
+            "fd_count_restored": true,
+            "exit_code": 0,
+            "retry_delays_seconds": [
+              1.042893,
+              1.031979,
+              1.031168
+            ]
+          },
+          {
+            "name": "burst-ECONNABORTED-31",
+            "injected": true,
+            "scripted_outcomes": [
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103
+            ],
+            "consecutive_pauses": 0,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [],
+            "max_accept_calls_between_waits": 2,
+            "accept_call_batches": [
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": false,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "burst-ECONNABORTED-32",
+            "injected": true,
+            "scripted_outcomes": [
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103
+            ],
+            "consecutive_pauses": 1,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [
+              1.029513
+            ],
+            "max_accept_calls_between_waits": 2,
+            "accept_call_batches": [
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": true,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "burst-ECONNABORTED-65",
+            "injected": true,
+            "scripted_outcomes": [
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103
+            ],
+            "consecutive_pauses": 2,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [
+              1.024919,
+              1.020911
+            ],
+            "max_accept_calls_between_waits": 2,
+            "accept_call_batches": [
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": true,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "burst-ENETDOWN-65",
+            "injected": true,
+            "scripted_outcomes": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ],
+            "consecutive_pauses": 2,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [
+              1.037235,
+              1.024492
+            ],
+            "max_accept_calls_between_waits": 2,
+            "accept_call_batches": [
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": true,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "burst-EINTR-31",
+            "injected": true,
+            "scripted_outcomes": [
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4
+            ],
+            "consecutive_pauses": 0,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [],
+            "max_accept_calls_between_waits": 32,
+            "accept_call_batches": [
+              2,
+              32
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": false,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "burst-EINTR-32",
+            "injected": true,
+            "scripted_outcomes": [
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4
+            ],
+            "consecutive_pauses": 1,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [
+              1.038327
+            ],
+            "max_accept_calls_between_waits": 32,
+            "accept_call_batches": [
+              2,
+              32,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": true,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "burst-EINTR-65",
+            "injected": true,
+            "scripted_outcomes": [
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4
+            ],
+            "consecutive_pauses": 2,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [
+              1.034099,
+              1.032847
+            ],
+            "max_accept_calls_between_waits": 32,
+            "accept_call_batches": [
+              2,
+              32,
+              32,
+              3
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": true,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "mixed-errors-65",
+            "injected": true,
+            "scripted_outcomes": [
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4,
+              100,
+              103,
+              4
+            ],
+            "consecutive_pauses": 2,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [
+              1.036682,
+              1.032288
+            ],
+            "max_accept_calls_between_waits": 3,
+            "accept_call_batches": [
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              1,
+              1,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              2,
+              1,
+              3
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": true,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "reset-success-ECONNABORTED",
+            "injected": true,
+            "scripted_outcomes": [
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              0,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              0
+            ],
+            "consecutive_pauses": 0,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [],
+            "max_accept_calls_between_waits": 2,
+            "accept_call_batches": [
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": false,
+            "pending_responses": [
+              200,
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "reset-eagain-ECONNABORTED",
+            "injected": true,
+            "scripted_outcomes": [
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              11,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              0
+            ],
+            "consecutive_pauses": 0,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [],
+            "max_accept_calls_between_waits": 2,
+            "accept_call_batches": [
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": false,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "reset-success-EINTR",
+            "injected": true,
+            "scripted_outcomes": [
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              0,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              0
+            ],
+            "consecutive_pauses": 0,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [],
+            "max_accept_calls_between_waits": 32,
+            "accept_call_batches": [
+              2,
+              32,
+              32
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": false,
+            "pending_responses": [
+              200,
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "reset-eagain-EINTR",
+            "injected": true,
+            "scripted_outcomes": [
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              11,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              4,
+              0
+            ],
+            "consecutive_pauses": 0,
+            "resource_pauses": 0,
+            "retry_delays_seconds": [],
+            "max_accept_calls_between_waits": 32,
+            "accept_call_batches": [
+              2,
+              32,
+              32
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": false,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "reset-resource-pause",
+            "injected": true,
+            "scripted_outcomes": [
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              12,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              103,
+              0
+            ],
+            "consecutive_pauses": 0,
+            "resource_pauses": 1,
+            "retry_delays_seconds": [
+              1.030402
+            ],
+            "max_accept_calls_between_waits": 2,
+            "accept_call_batches": [
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2
+            ],
+            "existing_response": 200,
+            "existing_completed_during_pause": true,
+            "pending_responses": [
+              200
+            ],
+            "fd_count_restored": true,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-paused-stop-EMFILE-SIGINT",
+            "injected": true,
+            "errno": 24,
+            "injections": 1,
+            "real_signal": "SIGINT",
+            "existing_response": 200,
+            "resumed_during_shutdown": false,
+            "listener_deleted_once": true,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-paused-stop-EMFILE-SIGTERM",
+            "injected": true,
+            "errno": 24,
+            "injections": 1,
+            "real_signal": "SIGTERM",
+            "existing_response": 200,
+            "resumed_during_shutdown": false,
+            "listener_deleted_once": true,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-paused-stop-ECONNABORTED-SIGINT",
+            "injected": true,
+            "errno": 103,
+            "injections": 32,
+            "real_signal": "SIGINT",
+            "existing_response": 200,
+            "resumed_during_shutdown": false,
+            "listener_deleted_once": true,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-paused-stop-ECONNABORTED-SIGTERM",
+            "injected": true,
+            "errno": 103,
+            "injections": 32,
+            "real_signal": "SIGTERM",
+            "existing_response": 200,
+            "resumed_during_shutdown": false,
+            "listener_deleted_once": true,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-paused-stop-EINTR-SIGINT",
+            "injected": true,
+            "errno": 4,
+            "injections": 32,
+            "real_signal": "SIGINT",
+            "existing_response": 200,
+            "resumed_during_shutdown": false,
+            "listener_deleted_once": true,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-paused-stop-EINTR-SIGTERM",
+            "injected": true,
+            "errno": 4,
+            "injections": 32,
+            "real_signal": "SIGTERM",
+            "existing_response": 200,
+            "resumed_during_shutdown": false,
+            "listener_deleted_once": true,
+            "exit_code": 0
+          },
+          {
+            "name": "accept-pause-del-failure",
+            "injected": true,
+            "errno": 5,
+            "exit_code": 1,
+            "success_not_reported": true
+          },
+          {
+            "name": "accept-resume-add-failure",
+            "injected": true,
+            "errno": 5,
+            "exit_code": 1,
+            "success_not_reported": true
+          },
+          {
+            "name": "real-nofile-64",
+            "injected": false,
+            "child_nofile_limit": 64,
+            "build": "Release with assertions; cold HTTP formatting, no UBSan runtime",
+            "accepted_before_release": 57,
+            "existing_response_at_limit": 200,
+            "pending_response_after_release": 200,
+            "retry_observation_seconds": 1.006602,
+            "cpu_seconds_during_full_retry": 0.0,
+            "fd_count_restored": true,
+            "exit_code": 0
+          }
+        ],
+        "parent_limits_unchanged": true,
+        "scope": "Production main, temporary loopback ports and real responses. Nine network errors, four resource errors, consecutive-error boundaries, call budget, reset paths and paused shutdown explicitly checked under UBSan; one separate assertions/Release child really exhausts RLIMIT_NOFILE=64 without a preceding HTTP warmup. All other process limits unchanged."
+      },
+      "seconds": 38.347562
+    },
+    {
+      "name": "logger-time",
+      "passed": true,
+      "details": {
+        "passed_cases": 3,
+        "cases": [
+          {
+            "name": "normal",
+            "output": "PASS normal conversions=2",
+            "log_lines": 1
+          },
+          {
+            "name": "failure",
+            "output": "PASS failure conversions=2",
+            "log_lines": 1
+          },
+          {
+            "name": "recovery",
+            "output": "PASS recovery conversions=4",
+            "log_lines": 2
+          }
+        ],
+        "scope": "Real logger and queue/destructor flush; only localtime_r failure is injected. Check direct helper results, call counts, persisted bodies and recovery; no server-clock changes."
+      },
+      "seconds": 0.006549
+    },
+    {
+      "name": "receive-timeout",
+      "passed": true,
+      "details": {
+        "actual_clock": true,
+        "idle_seconds": 30,
+        "cases": [
+          {
+            "name": "empty",
+            "seconds": 30.014695192000033,
+            "response_hex": ""
+          },
+          {
+            "name": "incomplete-line",
+            "seconds": 30.01413582700002,
+            "response_hex": ""
+          },
+          {
+            "name": "get",
+            "seconds": 30.013685694000003,
+            "response_hex": "485454502f312e312034303820526571756573742054696d656f75740d0a446174653a204d6f6e2c203136204e6f7620323032362030363a31393a333320474d540d0a436f6e74656e742d547970653a20746578742f706c61696e3b20636861727365743d7574662d380d0a436f6e74656e742d4c656e6774683a2031360d0a436f6e6e656374696f6e3a20636c6f73650d0a0d0a526571756573742054696d656f75740a"
+          },
+          {
+            "name": "head",
+            "seconds": 30.01278928399995,
+            "response_hex": "485454502f312e312034303820526571756573742054696d656f75740d0a446174653a204d6f6e2c203136204e6f7620323032362030363a31393a333320474d540d0a436f6e74656e742d547970653a20746578742f706c61696e3b20636861727365743d7574662d380d0a436f6e6e656374696f6e3a20636c6f73650d0a0d0a"
+          },
+          {
+            "name": "http10",
+            "seconds": 30.01273346800002,
+            "response_hex": "485454502f312e302034303820526571756573742054696d656f75740d0a446174653a204d6f6e2c203136204e6f7620323032362030363a31393a333320474d540d0a436f6e74656e742d547970653a20746578742f706c61696e3b20636861727365743d7574662d380d0a436f6e74656e742d4c656e6774683a2031360d0a436f6e6e656374696f6e3a20636c6f73650d0a0d0a526571756573742054696d656f75740a"
+          }
+        ],
+        "final_fds": 7
+      },
+      "seconds": 30.15563
+    },
+    {
+      "name": "send-timeout",
+      "passed": true,
+      "details": {
+        "actual_clock": true,
+        "idle_seconds": 30,
+        "cases": [
+          {
+            "name": "full-buffer-30s",
+            "output": "PASS full-buffer-30s elapsed=30.043057 real_EAGAIN_returns=580"
+          },
+          {
+            "name": "two-real-stalled-TCP-clients",
+            "cases": [
+              {
+                "fd": 7,
+                "accepted_bytes": 12288,
+                "response_bytes": 8388749,
+                "seconds_after_last_send": 30.064913086
+              },
+              {
+                "fd": 8,
+                "accepted_bytes": 12288,
+                "response_bytes": 8388749,
+                "seconds_after_last_send": 30.055293522
+              }
+            ],
+            "health_during_stall_seconds": 0.0005902119999632305,
+            "final_fds": 7
+          },
+          {
+            "name": "progress-at-20s",
+            "output": "PASS progress-at-20s elapsed=50.099352 idle_after_last_progress=30.099014 accepted_bytes=16128"
+          }
+        ],
+        "scope": "Real kernel backpressure, no EAGAIN/clock injection. Direct current sendResponse plus current main/event loop with test-only 8 MiB response fixture; production routes unchanged."
+      },
+      "seconds": 50.113162
+    },
+    {
+      "name": "request-deadline",
+      "passed": true,
+      "details": {
+        "actual_clock": true,
+        "total_seconds": 60,
+        "cases": [
+          {
+            "name": "get",
+            "seconds": 60.097934192000025,
+            "fragments": [
+              {
+                "seconds": 20.038062577999995,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.040600857000015,
+                "bytes": 1
+              }
+            ]
+          },
+          {
+            "name": "head",
+            "seconds": 60.09725793900003,
+            "fragments": [
+              {
+                "seconds": 20.025513451999984,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.022850909,
+                "bytes": 1
+              }
+            ]
+          },
+          {
+            "name": "http10",
+            "seconds": 60.09727196800003,
+            "fragments": [
+              {
+                "seconds": 20.035767832000033,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.03625059000001,
+                "bytes": 1
+              }
+            ]
+          },
+          {
+            "name": "complete-at-50s",
+            "seconds": 50.01470327800001,
+            "fragments": [
+              {
+                "seconds": 20.02281506899999,
+                "bytes": 1
+              },
+              {
+                "seconds": 40.02096125000003,
+                "bytes": 1
+              },
+              {
+                "seconds": 50.01434320200002,
+                "bytes": 12
+              }
+            ]
+          }
+        ],
+        "starts_at": "accepted connection initialization"
+      },
+      "seconds": 60.128591
+    }
+  ],
+  "fatal": null,
+  "configuration": {
+    "mode": "nonblocking LT epoll",
+    "receive_idle_seconds": 30,
+    "send_idle_seconds": 30,
+    "request_head_seconds": 60,
+    "drain_total_seconds": 1,
+    "drain_idle_milliseconds": 100,
+    "drain_max_bytes": 65536,
+    "max_connections": 1024,
+    "shutdown_grace_seconds": 5,
+    "accept_retry_seconds": 1,
+    "max_accept_calls_per_event": 32,
+    "max_consecutive_accept_errors": 32,
+    "logger_time_fallback": "time-unavailable"
+  },
+  "isolation": "Fresh assertions/UBSan build for regular and injected-fault checks; cold-start real fd exhaustion uses a separately built assertions/Release main because GCC 11 UBSan vptr checking itself needs pipe descriptors. Only test-child bind is redirected to temporary loopback ports. Original deadlines unchanged; owned processes only. Faults and enlarged response fixtures are recorded per group.",
+  "fresh_build": "passed: assertions/UBSan tools plus separate assertions/Release main for real fd exhaustion",
+  "binary_sha256": {
+    "main": "57803cb72350def42a24ede4e7a104163315594d3471b4c5bef33ff2679b02b8",
+    "epoll_connection_checks": "42c5623b45b5a64391e03043fdf4d3b53313bcf5505bc3c73a1b421f591754c0",
+    "epoll_send_checks": "d78f1e284e34fa7ad7cc740943e1c09f13549644df834c0c6850364cad90c542",
+    "epoll_server_fault_checks": "6ba31d649ae22bd71f20884e8bf8f2068abbb8efee7b28ed93acbcbd353911e9",
+    "epoll_response_fixture": "7d1a8bfd472cce5aa772900992dbe6b472f16dfa988a9c7cc5b2bc9352a19206",
+    "epoll_observed_server": "79ba505d34e2e4e4225e62aeaf17765f354cc726424dc3bc116fcb26b21379da",
+    "logger_time_checks": "bcff0bfaf79ee368db2757726f862f48ce26b27db1d2c08795e316c199b815b9",
+    "socket_test_shim.so": "9bbaa25732e4aec5f4acc9f94eb9806c602eb95bf0e260c4c76e533c9584692a",
+    "fd-limit-main": "dd6f2d22d31e8ce7dc4c7f7a4eff746ad864d6b3efffa5fe1fb6968a99ccc874"
+  },
+  "binaries_unchanged": true,
+  "all_owned_servers_stopped": true,
+  "server_ports": [
+    {
+      "group": "regression",
+      "loopback_port": 48029
+    },
+    {
+      "group": "lifecycle",
+      "loopback_port": 52259
+    },
+    {
+      "group": "concurrency",
+      "loopback_port": 47795
+    },
+    {
+      "group": "fault-interrupts",
+      "loopback_port": 44323
+    },
+    {
+      "group": "fault-recv-again",
+      "loopback_port": 57919
+    },
+    {
+      "group": "fault-send-again",
+      "loopback_port": 49805
+    },
+    {
+      "group": "fault-add-fail",
+      "loopback_port": 50573
+    },
+    {
+      "group": "fault-mod-fail",
+      "loopback_port": 49117
+    },
+    {
+      "group": "fault-del-fail",
+      "loopback_port": 33431
+    },
+    {
+      "group": "fault-shutdown-fail",
+      "loopback_port": 37909
+    },
+    {
+      "group": "draining",
+      "loopback_port": 47005
+    },
+    {
+      "group": "oversize",
+      "loopback_port": 52777
+    },
+    {
+      "group": "capacity",
+      "loopback_port": 33433
+    },
+    {
+      "group": "request-logging",
+      "loopback_port": 43239
+    },
+    {
+      "group": "stop-idle-SIGINT",
+      "loopback_port": 37073
+    },
+    {
+      "group": "stop-idle-SIGTERM",
+      "loopback_port": 50587
+    },
+    {
+      "group": "stop-finish-existing",
+      "loopback_port": 50483
+    },
+    {
+      "group": "stop-peer-write-open",
+      "loopback_port": 38809
+    },
+    {
+      "group": "stop-deadline-False",
+      "loopback_port": 32975
+    },
+    {
+      "group": "stop-deadline-True",
+      "loopback_port": 53023
+    },
+    {
+      "group": "stop-sending",
+      "loopback_port": 43465
+    },
+    {
+      "group": "stop-read-eintr",
+      "loopback_port": 60847
+    },
+    {
+      "group": "stop-read-again",
+      "loopback_port": 36011
+    },
+    {
+      "group": "stop-read-error",
+      "loopback_port": 36847
+    },
+    {
+      "group": "stop-read-short",
+      "loopback_port": 58097
+    },
+    {
+      "group": "stop-listener-del-fail",
+      "loopback_port": 56329
+    },
+    {
+      "group": "stop-signal-add-fail",
+      "loopback_port": 54647
+    },
+    {
+      "group": "accept-normal-control",
+      "loopback_port": 60841
+    },
+    {
+      "group": "accept-network-ECONNABORTED",
+      "loopback_port": 59079
+    },
+    {
+      "group": "accept-network-ENETDOWN",
+      "loopback_port": 44149
+    },
+    {
+      "group": "accept-network-EPROTO",
+      "loopback_port": 49463
+    },
+    {
+      "group": "accept-network-ENOPROTOOPT",
+      "loopback_port": 40061
+    },
+    {
+      "group": "accept-network-EHOSTDOWN",
+      "loopback_port": 37609
+    },
+    {
+      "group": "accept-network-ENONET",
+      "loopback_port": 40601
+    },
+    {
+      "group": "accept-network-EHOSTUNREACH",
+      "loopback_port": 40791
+    },
+    {
+      "group": "accept-network-EOPNOTSUPP",
+      "loopback_port": 59967
+    },
+    {
+      "group": "accept-network-ENETUNREACH",
+      "loopback_port": 33745
+    },
+    {
+      "group": "accept-EMFILE-repeat-1",
+      "loopback_port": 40619
+    },
+    {
+      "group": "accept-ENFILE-repeat-1",
+      "loopback_port": 47727
+    },
+    {
+      "group": "accept-EMFILE-repeat-3",
+      "loopback_port": 54477
+    },
+    {
+      "group": "accept-ENOBUFS-repeat-1",
+      "loopback_port": 51387
+    },
+    {
+      "group": "accept-ENOMEM-repeat-1",
+      "loopback_port": 38819
+    },
+    {
+      "group": "accept-ENOBUFS-repeat-3",
+      "loopback_port": 48583
+    },
+    {
+      "group": "accept-ENOMEM-repeat-3",
+      "loopback_port": 41053
+    },
+    {
+      "group": "accept-burst-ECONNABORTED-31",
+      "loopback_port": 38143
+    },
+    {
+      "group": "accept-burst-ECONNABORTED-32",
+      "loopback_port": 42721
+    },
+    {
+      "group": "accept-burst-ECONNABORTED-65",
+      "loopback_port": 59965
+    },
+    {
+      "group": "accept-burst-ENETDOWN-65",
+      "loopback_port": 34965
+    },
+    {
+      "group": "accept-burst-EINTR-31",
+      "loopback_port": 53737
+    },
+    {
+      "group": "accept-burst-EINTR-32",
+      "loopback_port": 49737
+    },
+    {
+      "group": "accept-burst-EINTR-65",
+      "loopback_port": 38579
+    },
+    {
+      "group": "accept-mixed-errors-65",
+      "loopback_port": 60727
+    },
+    {
+      "group": "accept-reset-success-ECONNABORTED",
+      "loopback_port": 45969
+    },
+    {
+      "group": "accept-reset-eagain-ECONNABORTED",
+      "loopback_port": 56303
+    },
+    {
+      "group": "accept-reset-success-EINTR",
+      "loopback_port": 38965
+    },
+    {
+      "group": "accept-reset-eagain-EINTR",
+      "loopback_port": 40777
+    },
+    {
+      "group": "accept-reset-resource-pause",
+      "loopback_port": 35515
+    },
+    {
+      "group": "accept-paused-stop-EMFILE-SIGINT",
+      "loopback_port": 51743
+    },
+    {
+      "group": "accept-paused-stop-EMFILE-SIGTERM",
+      "loopback_port": 60729
+    },
+    {
+      "group": "accept-paused-stop-ECONNABORTED-SIGINT",
+      "loopback_port": 46131
+    },
+    {
+      "group": "accept-paused-stop-ECONNABORTED-SIGTERM",
+      "loopback_port": 41301
+    },
+    {
+      "group": "accept-paused-stop-EINTR-SIGINT",
+      "loopback_port": 60781
+    },
+    {
+      "group": "accept-paused-stop-EINTR-SIGTERM",
+      "loopback_port": 51621
+    },
+    {
+      "group": "accept-pause-del-failure",
+      "loopback_port": 42943
+    },
+    {
+      "group": "accept-resume-add-failure",
+      "loopback_port": 55379
+    },
+    {
+      "group": "accept-real-nofile-64",
+      "loopback_port": 57997
+    },
+    {
+      "group": "receive-timeout",
+      "loopback_port": 48415
+    },
+    {
+      "group": "request-deadline",
+      "loopback_port": 40055
+    },
+    {
+      "group": "send-timeout",
+      "loopback_port": 48617
+    }
+  ],
+  "source_after": {
+    "CMakeLists.txt": "dd263cb6a71f10830c3ccd36cab1516ee7461f992729a1e72bd2173b0b91be95",
+    "src/http_request.cpp": "09d34beb7a1a9009d85d4da946319d60f822929b98f54a8eec6b33fa75beb9a3",
+    "src/http_response.cpp": "35a05d356131f691984c60150de88fad73906b41c4bd1e87df7cf2a9653957e5",
+    "src/http_router.cpp": "6bb4cb0c91699efbd546c4acaa26ca64417c95f91c346d42bfeb109c9f1176bf",
+    "src/logger.cpp": "89873ae5dda8db5b7aa33e8f7b9c552b5ec3898d936731f78ce712e486277d6d",
+    "src/main.cpp": "9f76abfbc2918ddf4327a364941c00beaccff1eb780495fb2aa49ade81c86643",
+    "src/tcp_connection.cpp": "a2a021ef3b586ab50e3db49f1271298fd291fbee2e5f4bf3da48486486902fd6",
+    "src/tcp_server.cpp": "8ecad039b2d317c0567e583f4498f7ab34e5057bc3b91e8e66bf9e19e812747e",
+    "src/thread_pool.cpp": "a1b5aadaad933a274430f06cce754bbaf9e097ac75767fe77a8afa90710b6332",
+    "include/http_request.h": "c309682160e20b38419a439395265e2b83cec9b68025a5ad4a800778714a1650",
+    "include/http_response.h": "47773807ab67b7cfa2a09ef097dfe5cddaae4259e3298b0c735d07e9fd9ae9cf",
+    "include/http_router.h": "496c22f5c890d69576ff5d942d8cab157890cef88c071217ca3c0359beb2d9a5",
+    "include/logger.h": "f315b99c42fef1f3f5c84de428b5517d4f7df8dcd919704780b66f888b2ce4e7",
+    "include/tcp_connection.h": "c00c5290cdb1774c34835cd6bbd11fcfa176541b131cb76a4194818c8555dfa8",
+    "include/tcp_server.h": "7b58acb3dd096dfabb557df202bfa6ae086b923e5d3edcbd0db039a07d6cddbe",
+    "include/thread_pool.h": "43d22257a54826bd78c3a8b551708fe2b9f3e369c744fc364267f43a77bb139f",
+    "tests/epoll_connection_checks.cpp": "a9c1bb895c455fa8724760b0f4d58a2c51bf09134b44abd2a3dd20c673c2c2c9",
+    "tests/epoll_response_fixture.cpp": "370ef5d52ea907bfb225579e2bd5c2770de1dad93a1c77d453d38912560cb9d3",
+    "tests/epoll_send_checks.cpp": "8fef5366277445cecd827e715a44986ac1648cc1177c355fed595f42cb3a56c8",
+    "tests/epoll_server_fault_checks.cpp": "b24ad746a6329c33fa326b87f4f35ec3b56c7dfb2f797255a4bf5c6d21b93ef5",
+    "tests/logger_stats_probe.cpp": "872d5cada178962bfc58bef3e5be17fade84bdbb1c231b6ae65c92fc5282ee5a",
+    "tests/logger_time_checks.cpp": "d4bd01ee51c6abad2f2c1581ad103fd30080f5ebe6ecffb8828f4587fb3bc337",
+    "tests/socket_test_shim.cpp": "7c2b0a5ab6b4232f34909c0c2acfce21f7b9efe501a64398b8650fb4d31b0b62",
+    "tests/accept_recovery_checks.py": "c3d111ba5584fa584486949735c4dee089bddf41c0d216096ab022bdfe483a1e",
+    "tests/epoll_hardening_checks.py": "78415e4be5e89b7b03952e272e9e7f5aa18c3b4b26c5807b9e33c95f535bd162",
+    "tests/http_test_support.py": "d423f73eed290926817e28bb65230ed0d6df25db01b65cb006a1d5c5c1575703",
+    "tests/run_epoll_benchmark.py": "a68b87c09f06439dd4afcd7e9fa30e93a6e56324ed38bfba6320508b93ae7320",
+    "tests/run_epoll_checks.py": "3219ec0e3d328ce6b9e11940cb52bb5a7a7ffeb5f14415dad7ab91af573a2c89",
+    "tests/http_cases.json": "58ace328ad46990a72470f099d2aea85b0db639c6000fa24302f5dd59b493a17"
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-11-16T06:20:02.070794+00:00",
+  "passed_groups": 16,
+  "full_acceptance": true
+}

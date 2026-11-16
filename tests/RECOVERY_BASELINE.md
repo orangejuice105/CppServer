@@ -1,5 +1,7 @@
 # accept 错误恢复与日志时间转换验收
 
+本文件保留 2026-11-15 输入快照的历史结果。连续错误退避及 ENOBUFS/ENOMEM 分类补齐后的最新验收见 [ACCEPT_BACKOFF_BASELINE.md](ACCEPT_BACKOFF_BASELINE.md)。
+
 执行日期：2026-11-15（Asia/Shanghai）。从独立目录重新构建并运行全部 **16 组检查**，最终报告 `full_acceptance=true`。真实 30 秒收发空闲期限和 60 秒请求头期限均重新等待，没有沿用旧结果。
 
 完整结果：[reports/epoll-recovery-2026-11-15.json](reports/epoll-recovery-2026-11-15.json)。默认入口：
